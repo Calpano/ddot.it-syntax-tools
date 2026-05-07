@@ -1,0 +1,31 @@
+{
+  "name": "@calpano/ddot-textmate-grammar",
+  "version": "0.1.0",
+  "description": "Canonical TextMate grammar for ddot.it (Knowledge Graph Notation). Consumed by VS Code, Shiki, and the cross-implementation conformance harness.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./grammar": "./ddot.tmLanguage.json",
+    "./ddot.tmLanguage.json": "./ddot.tmLanguage.json"
+  },
+  "files": [
+    "ddot.tmLanguage.json",
+    "index.js",
+    "README.md"
+  ],
+  "keywords": [
+    "ddot.it",
+    "textmate",
+    "grammar",
+    "syntax-highlighting",
+    "knowledge-graph"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Calpano/ddot.it-syntax-tools",
+    "directory": "textmate"
+  },
+  "homepage": "https://ddot.it"
+}
