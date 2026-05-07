@@ -1,0 +1,71 @@
+= ddot.it Syntax Tools
+:toc:
+
+Per-ecosystem builds of `ddot.it` syntax highlighters and the conformance
+tooling that asserts they all produce the same canonical token stream.
+
+== Goal
+
+Create syntax highlighters for the `ddot.it` line-oriented graph notation
+across all major code-highlighting toolchains, driven by a single shared
+spec and a single golden corpus.
+
+== Targeted highlighters
+
+[cols="1,2,3", options="header"]
+|===
+| Tool          | URL                                | Grammar format
+| Highlight.js  | highlightjs.org                    | Custom JS objects (tree of regex-based parsing modes)
+| Prism.js      | prismjs.com                        | Custom JS objects (regex pattern definitions)
+| Shiki         | shiki.style                        | TextMate grammars (`.tmLanguage`, JSON, plist)
+| Rouge         | github.com/rouge-ruby/rouge        | Custom Ruby classes (regex-based stateful lexers)
+| Pygments      | pygments.org                       | Custom Python classes (`RegexLexer` implementations)
+| Chroma        | github.com/alecthomas/chroma       | Custom Go structs (heavily based on / compatible with Pygments lexers)
+|===
+
+== Sibling repositories
+
+These live next to this repo and host the artefacts this one consumes:
+
+- `../ddot.it-vscode` — VS Code extension. Consumes the canonical
+  TextMate grammar from `textmate/` here via the
+  `@calpano/ddot-textmate-grammar` npm package (currently wired as a
+  `file:` dependency; will switch to a published version once shipped).
+- `../ddot.it-intellij` — IntelliJ grammar/highlighter (independent
+  Java implementation, not derived from the TextMate grammar).
+- `../ddot.it/test-data/` — the **shared** golden corpus. One set of
+  `.ddot` inputs, multiple sibling `expected.<format>` files per case,
+  consumed by HTML preview tests, event-export tests, and the
+  highlighter conformance tests in this repo. Includes the canonical
+  spec docs (`tokens.md`, `ddot.ebnf`).
+
+== Repository layout
+
+[cols="1,3"]
+|===
+| `textmate/`                           | Canonical TextMate grammar, packaged as `@calpano/ddot-textmate-grammar` (npm).
+| `textmate/ddot.tmLanguage.json`       | The grammar itself — source of truth for VS Code, Shiki, and the conformance harness.
+| `tools/textmate-tokenize.mjs`         | Shared tokenizer — runs the canonical grammar and returns canonical tokens.
+| `tools/regenerate-tokens.mjs`         | Writes `../ddot.it/test-data/cases/{*}/expected.tokens.json` for every case.
+| `tools/conformance-textmate.mjs`      | Asserts the canonical grammar's tokens match each case's committed golden.
+|===
+
+== Conformance protocol
+
+For every `../ddot.it/test-data/cases/{X}/input.ddot`:
+
+. Tokenize with the implementation under test.
+. Map native scope/style names to the canonical token names in
+  `../ddot.it/test-data/tokens.md`.
+. Drop whitespace-only tokens.
+. The resulting stream must equal
+  `../ddot.it/test-data/cases/{X}/expected.tokens.json`.
+
+== Scripts
+
+[source,shell]
+----
+npm run regenerate:tokens         # refresh expected.tokens.json from the live grammar
+npm run regenerate:tokens:check   # CI: fail if any case is stale
+npm run conformance:textmate      # diff live grammar vs committed goldens
+----

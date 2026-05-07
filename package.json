@@ -1,0 +1,18 @@
+{
+  "name": "ddot.it-syntax-tools",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Spec, golden corpus, and per-implementation builds of ddot.it syntax highlighters.",
+  "type": "module",
+  "scripts": {
+    "regenerate:tokens": "node tools/regenerate-tokens.mjs",
+    "regenerate:tokens:check": "node tools/regenerate-tokens.mjs --check",
+    "conformance:textmate": "node tools/conformance-textmate.mjs",
+    "conformance:rouge": "ruby tools/conformance-rouge.rb",
+    "conformance": "npm run conformance:textmate && npm run conformance:rouge"
+  },
+  "devDependencies": {
+    "vscode-textmate": "^9.3.2",
+    "vscode-oniguruma": "^2.0.1"
+  }
+}
