@@ -1,0 +1,92 @@
+name: Publish pygments-ddot to PyPI
+
+# Triggers:
+#   - Push a tag matching `pypi-v*` (e.g. `pypi-v0.2.0`).
+#   - Manual `workflow_dispatch` from the Actions tab.
+#
+# A separate tag prefix (`pypi-v*`) keeps Python releases out of the
+# npm publish workflow's `v*` namespace, so the two ecosystems can be
+# bumped independently.
+
+on:
+  push:
+    tags: ['pypi-v*']
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ddot.it-syntax-tools
+    steps:
+      # Sibling checkouts — `tools/conformance-pygments.py` reads inputs
+      # and goldens from ../ddot.it/test-data/cases/.
+      - name: Checkout ddot.it-syntax-tools
+        uses: actions/checkout@v5
+        with:
+          path: ddot.it-syntax-tools
+
+      - name: Checkout ddot.it (test-data corpus)
+        uses: actions/checkout@v5
+        with:
+          repository: Calpano/ddot.it
+          path: ddot.it
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install Pygments build twine
+
+      # Gate: don't publish if the canonical-token corpus disagrees with
+      # what the lexer produces.
+      - name: Conformance — Pygments
+        run: python tools/conformance-pygments.py
+
+      # Build a wheel + sdist, compare local pyproject.toml version with
+      # PyPI's, publish only if newer.
+      - name: Build & publish if newer
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+          TWINE_NON_INTERACTIVE: '1'
+        run: |
+          set -e
+          cd pygments
+          local_v=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          registry_v=$(curl -fsS https://pypi.org/pypi/pygments-ddot/json 2>/dev/null | python -c "import sys, json; print(json.load(sys.stdin)['info']['version'])" 2>/dev/null || echo "0.0.0")
+
+          echo "local: $local_v, registry: $registry_v"
+
+          if [ "$local_v" != "$registry_v" ]; then
+            echo "::group::Building wheel + sdist"
+            rm -rf dist build *.egg-info
+            python -m build
+            ls -la dist/
+            echo "::endgroup::"
+
+            echo "::group::Uploading to PyPI"
+            python -m twine upload dist/*
+            echo "::endgroup::"
+
+            {
+              echo "## PyPI publish summary"
+              echo
+              echo "**Published:** pygments-ddot@$local_v"
+              echo
+              echo "https://pypi.org/project/pygments-ddot/$local_v/"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "pygments-ddot@$local_v already on PyPI — skipping"
+            {
+              echo "## PyPI publish summary"
+              echo
+              echo "**Skipped:** pygments-ddot@$local_v already on PyPI"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
