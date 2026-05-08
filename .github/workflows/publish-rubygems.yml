@@ -1,0 +1,87 @@
+name: Publish rouge-ddot to RubyGems
+
+# Triggers:
+#   - Push a tag matching `rubygems-v*` (e.g. `rubygems-v0.2.0`).
+#   - Manual `workflow_dispatch` from the Actions tab.
+#
+# Distinct tag prefix keeps Ruby releases out of the npm and PyPI
+# workflows' tag namespaces.
+
+on:
+  push:
+    tags: ['rubygems-v*']
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ddot.it-syntax-tools
+    steps:
+      # Sibling checkouts — `tools/conformance-rouge.rb` reads inputs and
+      # goldens from ../ddot.it/test-data/cases/.
+      - name: Checkout ddot.it-syntax-tools
+        uses: actions/checkout@v5
+        with:
+          path: ddot.it-syntax-tools
+
+      - name: Checkout ddot.it (test-data corpus)
+        uses: actions/checkout@v5
+        with:
+          repository: Calpano/ddot.it
+          path: ddot.it
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Install rouge runtime dep
+        run: gem install rouge
+
+      # Gate: don't publish if the canonical-token corpus disagrees with
+      # the lexer's output.
+      - name: Conformance — Rouge
+        run: ruby tools/conformance-rouge.rb
+
+      # Build the gem, compare local vs RubyGems version, push only if
+      # newer. `gem push` reads its API key from GEM_HOST_API_KEY.
+      - name: Build & publish if newer
+        env:
+          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+        run: |
+          set -e
+          cd rouge
+          local_v=$(ruby -e "puts Gem::Specification.load('rouge-ddot.gemspec').version")
+          registry_v=$(curl -fsS https://rubygems.org/api/v1/gems/rouge-ddot.json 2>/dev/null | python3 -c "import sys, json; print(json.load(sys.stdin)['version'])" 2>/dev/null || echo "0.0.0")
+
+          echo "local: $local_v, registry: $registry_v"
+
+          if [ "$local_v" != "$registry_v" ]; then
+            echo "::group::Building gem"
+            rm -f *.gem
+            gem build rouge-ddot.gemspec
+            ls -la *.gem
+            echo "::endgroup::"
+
+            echo "::group::Pushing to RubyGems"
+            gem push "rouge-ddot-${local_v}.gem"
+            echo "::endgroup::"
+
+            {
+              echo "## RubyGems publish summary"
+              echo
+              echo "**Published:** rouge-ddot@$local_v"
+              echo
+              echo "https://rubygems.org/gems/rouge-ddot/versions/$local_v"
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "rouge-ddot@$local_v already on RubyGems — skipping"
+            {
+              echo "## RubyGems publish summary"
+              echo
+              echo "**Skipped:** rouge-ddot@$local_v already on RubyGems"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
