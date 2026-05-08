@@ -20,8 +20,22 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    defaults:
+      run:
+        working-directory: ddot.it-syntax-tools
     steps:
-      - uses: actions/checkout@v5
+      # Sibling checkouts — the conformance harnesses read inputs and
+      # goldens from ../ddot.it/test-data/cases/.
+      - name: Checkout ddot.it-syntax-tools
+        uses: actions/checkout@v5
+        with:
+          path: ddot.it-syntax-tools
+
+      - name: Checkout ddot.it (test-data corpus)
+        uses: actions/checkout@v5
+        with:
+          repository: Calpano/ddot.it
+          path: ddot.it
 
       - uses: actions/setup-node@v5
         with:
@@ -56,7 +70,7 @@ jobs:
           published=()
           skipped=()
           for d in textmate shiki highlightjs prismjs; do
-            cd "$GITHUB_WORKSPACE/$d"
+            cd "$GITHUB_WORKSPACE/ddot.it-syntax-tools/$d"
             name=$(node -p "require('./package.json').name")
             local_v=$(node -p "require('./package.json').version")
             registry_v=$(npm view "$name" version 2>/dev/null || echo "0.0.0")
