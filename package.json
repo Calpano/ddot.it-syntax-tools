@@ -8,11 +8,21 @@
     "regenerate:tokens": "node tools/regenerate-tokens.mjs",
     "regenerate:tokens:check": "node tools/regenerate-tokens.mjs --check",
     "conformance:textmate": "node tools/conformance-textmate.mjs",
+    "conformance:shiki": "node tools/conformance-shiki.mjs",
     "conformance:rouge": "ruby tools/conformance-rouge.rb",
-    "conformance": "npm run conformance:textmate && npm run conformance:rouge"
+    "conformance:pygments": "python3 tools/conformance-pygments.py",
+    "conformance:chroma": "docker run --rm -v $(cd .. && pwd):/work -w /work/ddot.it-syntax-tools/tools/conformance-chroma golang:1.23 go run .",
+    "conformance:highlightjs": "node tools/conformance-highlightjs.mjs",
+    "conformance:prismjs": "node tools/conformance-prismjs.mjs",
+    "conformance": "npm run conformance:textmate && npm run conformance:shiki && npm run conformance:rouge && npm run conformance:pygments && npm run conformance:chroma && npm run conformance:highlightjs && npm run conformance:prismjs",
+    "publish-test": "node tools/publish-test.mjs"
   },
   "devDependencies": {
-    "vscode-textmate": "^9.3.2",
-    "vscode-oniguruma": "^2.0.1"
+    "@calpano/ddot-shiki": "file:./shiki",
+    "highlight.js": "^11.11.1",
+    "prismjs": "^1.30.0",
+    "shiki": "^4.0.0",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2"
   }
 }

@@ -1,0 +1,37 @@
+{
+  "name": "@calpano/ddot-shiki",
+  "version": "0.1.0",
+  "description": "Shiki language registration for ddot.it (Knowledge Graph Notation). Wraps @calpano/ddot-textmate-grammar so any Shiki highlighter can pick up ddot.it.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "README.md"
+  ],
+  "keywords": [
+    "ddot.it",
+    "shiki",
+    "syntax-highlighting",
+    "textmate",
+    "knowledge-graph"
+  ],
+  "dependencies": {
+    "@calpano/ddot-textmate-grammar": "^0.1.0"
+  },
+  "peerDependencies": {
+    "shiki": ">=1.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Calpano/ddot.it-syntax-tools",
+    "directory": "shiki"
+  },
+  "homepage": "https://ddot.it",
+  "publishConfig": {
+    "access": "public"
+  }
+}

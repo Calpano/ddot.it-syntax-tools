@@ -1,0 +1,8 @@
+# Build artefacts produced by `python -m build`.
+build/
+dist/
+*.egg-info/
+
+# Python bytecode / caches.
+__pycache__/
+*.py[cod]

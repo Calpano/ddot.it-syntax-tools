@@ -1,0 +1,78 @@
+name: Conformance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ddot.it-syntax-tools
+    steps:
+      # Sibling checkouts — the conformance harness reads cases from
+      # ../ddot.it/test-data/cases/ and the @calpano/ddot-textmate-grammar
+      # file: dep also resolves through a sibling path.
+      - name: Checkout ddot.it-syntax-tools
+        uses: actions/checkout@v5
+        with:
+          path: ddot.it-syntax-tools
+
+      - name: Checkout ddot.it (test-data corpus)
+        uses: actions/checkout@v5
+        with:
+          repository: Calpano/ddot.it
+          path: ddot.it
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: ddot.it-syntax-tools/package-lock.json
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Node deps
+        run: npm ci
+
+      - name: Install Rouge
+        run: gem install rouge -v '>= 3.30'
+
+      - name: Install Pygments
+        run: pip install 'Pygments>=2.10'
+
+      - name: Verify goldens are not stale
+        run: npm run regenerate:tokens:check
+
+      - name: Conformance — TextMate
+        run: npm run conformance:textmate
+
+      - name: Conformance — Shiki
+        run: npm run conformance:shiki
+
+      - name: Conformance — Rouge
+        run: npm run conformance:rouge
+
+      - name: Conformance — Pygments
+        run: npm run conformance:pygments
+
+      - name: Conformance — Chroma
+        # GitHub-hosted ubuntu-latest runners ship Docker pre-installed.
+        run: npm run conformance:chroma
+
+      - name: Conformance — highlight.js
+        run: npm run conformance:highlightjs
+
+      - name: Conformance — Prism.js
+        run: npm run conformance:prismjs

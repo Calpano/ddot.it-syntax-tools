@@ -1,0 +1,64 @@
+= Rouge lexer — design notes
+:toc:
+
+Reference state-machine implementation. Pygments and Chroma are direct
+ports of this design.
+
+== Flat state machine, goto-only
+
+Every state ends a line by transitioning back to `:root`. We use Rouge's
+`goto :next` (not `push`) exclusively, so the parser stack stays one
+deep at all times and `\n` is a clean reset point. This makes per-line
+dispatch trivial — every line starts fresh in `:root`.
+
+States: `root`, `subject`, `after_subject`, `relation`, `after_relation`,
+`object`, `after_object`, plus parallel branches for `disabled`,
+`meta_block` (free-form `,,`), `typed_meta_open`/`typed_meta_block` (typed
+`,,…,,` after a triple), and `inline_meta_*` (the `,, ..rel.. obj` tail).
+
+== Rouge gotcha: token emission inside a block
+
+The `rule pat, Token do |m| ... end` form *ignores* the `Token` argument
+when a block is given. To both emit a token and transition states inside
+a block, the block must explicitly call `token Token, m[0]`:
+
+[source,ruby]
+----
+rule(/.../) do |m|
+  token Operator, m[0]   # explicit emit — the rule's Token arg is ignored
+  goto :object
+end
+----
+
+Forgetting the explicit `token` call silently drops the match from the
+output stream.
+
+== `.. ..` is one operator token
+
+The `:after_subject` state has a dedicated rule for `\.{2}[ \t]+\.{2}`
+that emits a single `Operator` token for the whole `.. ..` sequence
+(including the inner whitespace) before transitioning to `:object`.
+This matches the canonical corpus and the TextMate grammar's behavior.
+
+== Token mapping (canonical token names)
+
+[cols="1,2"]
+|===
+| Rouge token              | Canonical name
+
+| `Name::Class`            | `subject`
+| `Name::Function`         | `relation`
+| `Literal::String::Symbol`| `object`
+| `Operator`               | `operator`
+| `Keyword::Pseudo`        | `command`
+| `Comment::Preproc`       | `meta-delim`
+| `Comment::Hashbang`      | `meta-operator`
+| `Comment::Doc`           | `meta-relation`
+| `Comment::Special`       | `meta-object`
+| `Comment::Multiline`     | `meta-text`
+| `Comment::Single`        | `disabled`
+|===
+
+These are the most-specific Rouge tokens that carry distinct theme
+styling in the existing palette. Other ports (Pygments, Chroma) chose
+their own native tokens but mirror the same one-per-canonical mapping.

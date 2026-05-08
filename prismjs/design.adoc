@@ -1,0 +1,98 @@
+= Prism.js language — design notes
+:toc:
+
+The hardest of the seven implementations. Prism's tokenizer architecture
+fights against slot-positional semantics like ddot's; the design below
+reflects four dead-ends I had to walk back before finding what works.
+
+== Prism chunks the text as patterns match
+
+Prism's tokenizer applies each pattern in priority order, splitting the
+remaining un-tokenized text into chunks as matches are found.
+Crucially, **a pattern's regex only sees the current chunk**, not the
+original input. Once `operator` has matched all `..` markers, the
+chunks between them are isolated strings — a `relation` pattern with
+lookbehind `(?<=\.\.)` running afterwards can't see across the chunk
+boundary because the `..` is a Token, not text in the chunk.
+
+This rules out the "match operator first, then identify slots between"
+approach. Sub-patterns inside an `inside` grammar suffer the same
+chunking, so `inside` is no help either.
+
+== The lookbehind: true escape hatch
+
+Prism's `lookbehind: true` flag treats the FIRST capture group of a
+pattern as a "lookbehind prefix" — included in the regex match (so JS
+lookahead works against it), stripped from the token's text, but
+**preserved as residual text in the token list** for subsequent
+patterns to claim.
+
+This is the entire trick. Slot patterns at the top level use
+`lookbehind: true` to absorb the preceding `..` (or `^[ \t]*` for
+subject) as the first capture, then JS lookahead `(?=[ \t]*\.\.)` for
+the right boundary. The `..` is consumed as part of the regex match but
+left in the residual text — the later `operator` pattern picks it up.
+
+[source,js]
+----
+'relation': {
+  pattern: /(\.\.[ \t]*)([^\s.,][^\n.,]*?[^\s.,]?)(?=[ \t]*\.\.)/,
+  lookbehind: true,
+},
+----
+
+== Pattern order: slots BEFORE operator
+
+Because slot patterns rely on the `..` markers being still in the
+text, they must run before `operator`. Order:
+
+. multi-line region patterns (disabled, meta-text-region, typed-meta-region)
+. `inline-meta-region` (the `,, .. rel .. obj` tail)
+. `command`
+. `subject` / `relation` / `object` (slot positions)
+. `operator` (mops up surviving `..` markers)
+. `meta-delim` (mops up `,,`)
+
+== Object lookahead must allow trailing `,,`
+
+The block-meta-open form (`subject .. rel .. obj ,,`) puts the object
+just before a `,,`, not before end-of-line. Naive object lookahead
+`(?=[ \t]*$)` fails on this form. Use `(?=[ \t]*(?:$|,,))`.
+
+== typed-meta-region: anchor to body lines only
+
+The first attempt matched the entire region (opener line + body +
+close) with one outer pattern. The opener line's slots ended up scoped
+as meta-* because the inside grammar didn't know which line it was
+processing.
+
+Fix: anchor `typed-meta-region` to lines starting with `..` (the
+continuation form), so it covers body + closing `,,` only:
+
+[source,js]
+----
+const typedMetaRegionRe = /^(?:[ \t]*\.{2,4}[^\n]*\n)+[ \t]*,,[ \t]*$/m;
+----
+
+The opener line (a normal triple ending in `,,`) falls back to the
+top-level slot patterns + `meta-delim`, getting its operators scoped
+as `operator` rather than `meta-operator`. The trailing `,,` of the
+opener is matched by the top-level `meta-delim` pattern.
+
+== JS lookbehind requires modern engines
+
+Variable-width lookbehind `(?<=\.\.[ \t]*)` is ES2018 — fine in current
+Node and modern browsers, but pre-2018 environments will throw.
+
+If broader compat is ever needed: refactor patterns to use `lookbehind:
+true` exclusively (which is Prism-side prefix-stripping rather than JS
+lookbehind). The current lexer mixes both — top-level slot patterns use
+`lookbehind: true` for the leading anchor, JS lookbehind/lookahead for
+the right anchor.
+
+== Token mapping is identity
+
+Like hljs, Prism token names equal canonical names directly:
+`subject`/`relation`/`object`/`operator`/`command`/`meta-delim`/
+`meta-operator`/`meta-relation`/`meta-object`/`meta-text`/`disabled`.
+Themes need ddot-specific CSS targeting `.token.<canonical-name>`.

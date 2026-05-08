@@ -1,0 +1,55 @@
+= Pygments lexer — design notes
+:toc:
+
+Direct port of the Rouge lexer. Pygments' `RegexLexer` API is the
+closest in spirit to Rouge — both have the same flat-state-machine,
+goto-only structure.
+
+== State transitions
+
+Pygments encodes goto as a 2-tuple `('#pop', 'next_state')`: pop one
+state, push the next. This is the equivalent of Rouge's `goto`. The
+stack stays depth-1 throughout normal triple-line processing.
+
+[source,python]
+----
+'subject': [
+    (regex, Keyword.Pseudo, ('#pop', 'after_subject')),
+    ...
+],
+----
+
+`'#pop'` alone pops one. `'#push'` pushes the current state again. A
+plain string state name pushes that state.
+
+== Custom subtokens via attribute access
+
+Pygments tokens form an extensible namespace: `Comment.Special.Operator`
+is a distinct subtoken that doesn't need to be predeclared — the
+runtime materialises it on first attribute access. Built-in themes
+won't style ddot-specific subtokens specifically, but they inherit
+parent styling (`Comment.Special.Operator` inherits from
+`Comment.Special` etc.). Themes that want ddot-specific colours can
+target the subtoken paths directly.
+
+This is what made Pygments easier than Chroma — Chroma's enum is fixed.
+
+== `pip install pygments-ddot` registers the lexer
+
+The `pyproject.toml` declares an entry point:
+
+[source,toml]
+----
+[project.entry-points."pygments.lexers"]
+ddot = "pygments_ddot:DdotLexer"
+----
+
+After install, both `pygmentize -l ddot file.ddot` and
+`pygments.lexers.get_lexer_by_name("ddot")` find the lexer
+automatically. No manual registration step.
+
+== `re.MULTILINE` is on by default
+
+Pygments compiles all rule regexes with `re.MULTILINE | re.DOTALL`. So
+`^` matches start-of-line for free in every state. Rules can rely on
+line-anchored patterns without setting flags themselves.

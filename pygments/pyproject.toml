@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pygments-ddot"
+version = "0.1.0"
+description = "Pygments lexer for ddot.it (Knowledge Graph Notation)."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Calpano", email = "hello@calpano.com" }]
+requires-python = ">=3.8"
+dependencies = ["Pygments>=2.10"]
+keywords = ["pygments", "ddot.it", "syntax-highlighting", "knowledge-graph"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Processing :: Markup",
+]
+
+[project.urls]
+Homepage = "https://ddot.it"
+Source = "https://github.com/Calpano/ddot.it-syntax-tools"
+
+# Pygments discovers third-party lexers via this entry point.
+# After `pip install pygments-ddot`, `pygmentize -l ddot file.ddot` works.
+[project.entry-points."pygments.lexers"]
+ddot = "pygments_ddot:DdotLexer"
+
+[tool.setuptools.packages.find]
+include = ["pygments_ddot*"]

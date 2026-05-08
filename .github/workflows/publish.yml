@@ -1,0 +1,83 @@
+name: Publish npm packages
+
+# Triggers:
+#   - Push a tag matching `v*` (e.g. `v0.2.0`) → publish run.
+#   - Manual `workflow_dispatch` from the Actions tab → publish run.
+#
+# For each of the four npm packages (`textmate/`, `shiki/`, `highlightjs/`,
+# `prismjs/`), the workflow compares the local version in `package.json`
+# against the version on the npm registry and publishes only if newer.
+# This means a single tag can publish any subset of the packages — bump
+# what you want shipped, leave the others alone.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install Node deps
+        run: npm ci
+
+      # Gate: don't publish if the canonical-token corpus disagrees with
+      # any of the npm-side implementations. Rouge / Pygments / Chroma
+      # need Ruby / Python / Docker which we skip here (they're tested in
+      # the conformance.yml workflow and locally before tagging).
+      - name: Conformance — TextMate
+        run: npm run conformance:textmate
+      - name: Conformance — Shiki
+        run: npm run conformance:shiki
+      - name: Conformance — highlight.js
+        run: npm run conformance:highlightjs
+      - name: Conformance — Prism.js
+        run: npm run conformance:prismjs
+
+      # Publish each package only if its local version is newer than the
+      # registry's. `npm view <name> version` prints the latest published
+      # version, or fails (exit non-zero) if the package doesn't exist
+      # yet — the `|| echo 0.0.0` falls back to 0.0.0 in that case.
+      - name: Publish if newer
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -e
+          published=()
+          skipped=()
+          for d in textmate shiki highlightjs prismjs; do
+            cd "$GITHUB_WORKSPACE/$d"
+            name=$(node -p "require('./package.json').name")
+            local_v=$(node -p "require('./package.json').version")
+            registry_v=$(npm view "$name" version 2>/dev/null || echo "0.0.0")
+            if [ "$local_v" != "$registry_v" ]; then
+              echo "::group::Publishing $name@$local_v (registry has $registry_v)"
+              npm publish
+              published+=("$name@$local_v")
+              echo "::endgroup::"
+            else
+              echo "$name@$local_v already on registry — skipping"
+              skipped+=("$name@$local_v")
+            fi
+          done
+
+          echo
+          echo "Published: ${published[*]:-(none)}"
+          echo "Skipped:   ${skipped[*]:-(none)}"
+          {
+            echo "## Publish summary"
+            echo
+            echo "**Published:** ${published[*]:-(none)}"
+            echo
+            echo "**Skipped (already on registry):** ${skipped[*]:-(none)}"
+          } >> "$GITHUB_STEP_SUMMARY"

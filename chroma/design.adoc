@@ -1,0 +1,81 @@
+= Chroma lexer — design notes
+:toc:
+
+Pygments-compatible-in-spirit, but Chroma's XML rule format imposes
+constraints that forced a different state-machine shape from the
+sibling Pygments / Rouge ports.
+
+== One mutator per rule (the big one)
+
+Chroma rejects rules with both `<pop>` and `<push>` actions —
+"duplicate mutator". The pop+push "goto" idiom that Rouge and Pygments
+use freely is unavailable. Workaround: **push-only state transitions
+plus cascading lookahead-pop on `\n`**.
+
+Each non-root state's rule list ends with:
+
+[source,xml]
+----
+<rule pattern="(?=\n)">
+  <pop depth="1"/>
+</rule>
+----
+
+The lookahead `(?=\n)` matches without consuming. When end-of-line is
+reached deep in the phase chain (subject → after_subject → relation →
+after_relation → object → after_object), each state pops one level on
+each pass; after enough cascading pops control is back in `root`, which
+has a regular `\n` consumer. Tokens advance the position, the popped
+states never get to consume the `\n`, but every pop step changes the
+current state so the lexer doesn't infinite-loop.
+
+The cost is several pops per newline (≈ 6 for a fully-nested triple
+line), but it's amortised over fast regex matches and not measurable.
+
+== Regex engine: lookahead works
+
+Chroma uses `dlclark/regexp2`, not Go's stdlib `regexp` (which is
+RE2-based and lacks lookaround). So `(?=...)` lookahead and `(?<=...)`
+lookbehind are both available — same as Pygments and Rouge.
+
+== No custom subtokens
+
+Unlike Pygments (extensible token paths via attribute access), Chroma's
+token enum is fixed at compile time. Custom subtokens like
+`Comment.Special.Operator` aren't expressible in the XML. The lexer
+repurposes existing distinct standard tokens for the meta-* slots:
+
+[cols="1,2"]
+|===
+| Chroma token            | Canonical name
+
+| `NameClass`             | `subject`
+| `NameFunction`          | `relation`
+| `LiteralStringSymbol`   | `object`
+| `Operator`              | `operator`
+| `KeywordPseudo`         | `command`
+| `CommentPreproc`        | `meta-delim`
+| `CommentHashbang`       | `meta-operator`
+| `NameAttribute`         | `meta-relation`
+| `LiteralStringHeredoc`  | `meta-object`
+| `CommentMultiline`      | `meta-text`
+| `CommentSingle`         | `disabled`
+|===
+
+`NameAttribute` and `LiteralStringHeredoc` are the closest semantic fits
+for "name-shaped predicate inside a comment region" and "value-shaped
+literal inside a comment region" respectively. Themes that don't know
+about ddot will style them generically but distinctly.
+
+== XML loading
+
+Lexer is loaded via `chroma.NewXMLLexer(fs.FS, filename)` — takes an
+`fs.FS` (e.g. `os.DirFS(dir)` or `embed.FS`), not raw bytes. Older
+Chroma versions exposed `chroma.MustNewXMLLexer`; v2.14+ uses the
+`fs.FS`-based form.
+
+== Conformance harness runs in Docker
+
+`tools/conformance-chroma/main.go` is invoked via `docker run --rm
+golang:1.23 go run .` so the host doesn't need a Go toolchain. The
+harness compiles in ~5s on a cold cache, ~1s on warm.

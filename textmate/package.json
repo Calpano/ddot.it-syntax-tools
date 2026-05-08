@@ -24,8 +24,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Calpano/ddot.it-syntax-tools",
+    "url": "git+https://github.com/Calpano/ddot.it-syntax-tools.git",
     "directory": "textmate"
   },
-  "homepage": "https://ddot.it"
+  "homepage": "https://ddot.it",
+  "publishConfig": {
+    "access": "public"
+  }
 }

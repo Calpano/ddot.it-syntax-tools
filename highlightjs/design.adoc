@@ -1,0 +1,77 @@
+= highlight.js language — design notes
+:toc:
+
+highlight.js is a regex-mode system, not a state-machine lexer. The
+trade-offs that follow are the price of fitting ddot's slot semantics
+into hljs's mode-and-bygroups framework.
+
+== Bygroups by ARRAY POSITION, not capture-group index
+
+The bygroups idiom is `match: [r1, r2, r3]` (an array of regexes that
+hljs concatenates with `(r1)(r2)(r3)`) plus `scope: { 1: 'a', 2: 'b' }`.
+The scope keys index into the **array**, not into the resulting regex's
+capture groups. hljs does the bookkeeping internally to remap, so any
+internal capture groups inside `r1`/`r2`/`r3` shift the addressing.
+
+Practical consequence: overlapping alternation `(?:(CMD)|(NAME))` to
+say "this slot is either a command or a name, scope each branch
+differently" doesn't work. The whole alternation occupies *one* array
+position with one scope.
+
+Workaround: split each line shape into multiple variants, one per
+slot-content discriminator. The corpus only puts commands in the
+*subject* slot (or as standalone off/on markers), so we get away with
+two variants per line shape (command-subject vs name-subject) instead
+of `2^N` for N command-capable slots. Total lexer: 14 top-level rules
++ 4 begin/end submodes.
+
+== END is checked AFTER `contains` rules
+
+Counter to the docs' suggestion that the parent's END takes priority,
+inner `contains` rules can match the end marker before END fires. In
+practice the inner content rule for the disabled mode (`{ match:
+/^[^\n]+$/m, scope: 'disabled' }`) was matching the on-marker line as
+disabled body, and END never got a turn.
+
+The fix is a negative lookahead on the inner-content rule that excludes
+the end marker shape:
+
+[source,js]
+----
+{
+  match: /^(?![ \t]*(?:ddot\.it\/on|!!on)[ \t]*$)[^\n]+$/m,
+  scope: 'disabled'
+}
+----
+
+This applies to any begin/end mode whose body matcher could swallow the
+end marker. We hit it with `DISABLED` only; the typed-meta block uses a
+specific continuation pattern that doesn't share shape with the
+closing `,,`, so it's not affected.
+
+== Whitespace positions get no scope
+
+Each line shape's `match: [...]` array includes whitespace regexes
+(`/^[ \t]*/`, `/[ \t]*/`, `/[ \t]*$/`) at array positions that *don't
+appear* in the `scope` map. hljs leaves unmapped positions as plain
+text. This is how we skip whitespace from the canonical token stream
+without suppressing it from the rendered HTML.
+
+== Rule ordering
+
+Block-meta-open variants (`subject .. rel .. obj ,,`) must be tried
+*before* the plain triple variants, because they match a strict
+super-string of the plain shape. Within each "ending" group
+(block-meta-open / inline-meta / plain), continuation lines come before
+triple lines (continuations require leading `..` so they can't collide
+with anything else). The `command-subject` variant comes before the
+`name-subject` variant for the same shape, since the command regex is a
+strict subset of the name regex (`ddot.it/this` is also a valid name).
+
+== Token mapping is identity
+
+hljs scopes equal canonical token names directly:
+`subject`/`relation`/`object`/`operator`/`command`/`meta-delim`/
+`meta-operator`/`meta-relation`/`meta-object`/`meta-text`/`disabled`.
+Themes need ddot-specific CSS — the `hljs-` prefix is added at render
+time so e.g. `hljs-subject`, `hljs-meta-delim` are the class names.

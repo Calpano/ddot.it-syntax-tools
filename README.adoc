@@ -12,16 +12,20 @@ spec and a single golden corpus.
 
 == Targeted highlighters
 
-[cols="1,2,3", options="header"]
+[cols="1,2,3,1", options="header"]
 |===
-| Tool          | URL                                | Grammar format
-| Highlight.js  | highlightjs.org                    | Custom JS objects (tree of regex-based parsing modes)
-| Prism.js      | prismjs.com                        | Custom JS objects (regex pattern definitions)
-| Shiki         | shiki.style                        | TextMate grammars (`.tmLanguage`, JSON, plist)
-| Rouge         | github.com/rouge-ruby/rouge        | Custom Ruby classes (regex-based stateful lexers)
-| Pygments      | pygments.org                       | Custom Python classes (`RegexLexer` implementations)
-| Chroma        | github.com/alecthomas/chroma       | Custom Go structs (heavily based on / compatible with Pygments lexers)
+| Tool          | URL                                | Grammar format                                                       | Status
+| Shiki         | shiki.style                        | TextMate grammars (`.tmLanguage`, JSON, plist)                       | ✓ `shiki/`
+| Rouge         | github.com/rouge-ruby/rouge        | Custom Ruby classes (regex-based stateful lexers)                    | ✓ `rouge/`
+| Pygments      | pygments.org                       | Custom Python classes (`RegexLexer` implementations)                 | ✓ `pygments/`
+| Chroma        | github.com/alecthomas/chroma       | Custom Go structs (Pygments-compatible XML lexers)                   | ✓ `chroma/`
+| Highlight.js  | highlightjs.org                    | Custom JS objects (tree of regex-based parsing modes)                | ✓ `highlightjs/`
+| Prism.js      | prismjs.com                        | Custom JS objects (regex pattern definitions)                        | ✓ `prismjs/`
 |===
+
+The TextMate grammar at `textmate/` is the source-of-truth shared by VS Code
+and Shiki. The other implementations are independent ports verified against
+the same canonical token stream.
 
 == Sibling repositories
 
@@ -45,9 +49,21 @@ These live next to this repo and host the artefacts this one consumes:
 |===
 | `textmate/`                           | Canonical TextMate grammar, packaged as `@calpano/ddot-textmate-grammar` (npm).
 | `textmate/ddot.tmLanguage.json`       | The grammar itself — source of truth for VS Code, Shiki, and the conformance harness.
+| `shiki/`                              | Shiki language registration, packaged as `@calpano/ddot-shiki` (npm). Wraps `textmate/`.
+| `rouge/`                              | Rouge lexer, packaged as `rouge-ddot` (RubyGems).
+| `pygments/`                           | Pygments lexer, packaged as `pygments-ddot` (PyPI).
+| `chroma/`                             | Chroma XML lexer (drop-in for Chroma's lexer registry).
+| `highlightjs/`                        | highlight.js language definition, packaged as `@calpano/ddot-highlightjs` (npm).
+| `prismjs/`                            | Prism.js language definition, packaged as `@calpano/ddot-prismjs` (npm).
 | `tools/textmate-tokenize.mjs`         | Shared tokenizer — runs the canonical grammar and returns canonical tokens.
 | `tools/regenerate-tokens.mjs`         | Writes `../ddot.it/test-data/cases/{*}/expected.tokens.json` for every case.
 | `tools/conformance-textmate.mjs`      | Asserts the canonical grammar's tokens match each case's committed golden.
+| `tools/conformance-shiki.mjs`         | Asserts Shiki tokens match each case's committed golden via `@calpano/ddot-shiki`.
+| `tools/conformance-rouge.rb`          | Asserts Rouge tokens match each case's committed golden via `rouge-ddot`.
+| `tools/conformance-pygments.py`       | Asserts Pygments tokens match each case's committed golden.
+| `tools/conformance-chroma/`           | Go program (`golang:1.23` Docker container) — asserts Chroma tokens match.
+| `tools/conformance-highlightjs.mjs`   | Asserts highlight.js HTML output decodes to canonical token streams.
+| `tools/conformance-prismjs.mjs`       | Asserts Prism.js token tree maps to canonical token streams.
 |===
 
 == Conformance protocol
@@ -67,5 +83,19 @@ For every `../ddot.it/test-data/cases/{X}/input.ddot`:
 ----
 npm run regenerate:tokens         # refresh expected.tokens.json from the live grammar
 npm run regenerate:tokens:check   # CI: fail if any case is stale
-npm run conformance:textmate      # diff live grammar vs committed goldens
+npm run conformance:textmate      # diff TextMate grammar vs committed goldens
+npm run conformance:shiki         # diff Shiki output vs committed goldens
+npm run conformance:rouge         # diff Rouge lexer output vs committed goldens
+npm run conformance:pygments      # diff Pygments lexer output vs committed goldens
+npm run conformance:chroma        # diff Chroma lexer output vs committed goldens (runs in Docker)
+npm run conformance:highlightjs   # diff highlight.js output vs committed goldens
+npm run conformance:prismjs       # diff Prism.js output vs committed goldens
+npm run conformance               # all of the above
 ----
+
+== Toolchain isolation
+
+`conformance:chroma` runs inside a `golang:1.23` Docker container — the
+host doesn't need a Go toolchain. `conformance:pygments` requires a
+host-side `python3` with `pygments` installed; `conformance:rouge`
+requires a host-side `ruby` with the `rouge` gem.

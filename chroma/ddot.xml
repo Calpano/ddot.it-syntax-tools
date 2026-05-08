@@ -1,0 +1,339 @@
+<lexer>
+  <!--
+    Chroma lexer for ddot.it (https://ddot.it).
+    Direct port of the Pygments lexer (../pygments/pygments_ddot/lexer.py)
+    and the Rouge lexer (../rouge/lib/rouge/lexers/ddot.rb), but adapted
+    for Chroma's one-mutator-per-rule restriction. Where the others use
+    pop+push as a "goto" between phase states, this lexer uses push-only
+    nesting, with each non-root state carrying a `(?=\n)` rule that pops
+    one. On end-of-line the pops cascade until we're back in root, which
+    then consumes the literal `\n`.
+
+    Token mapping (Chroma → canonical, see ../../ddot.it/test-data/tokens.md):
+      NameClass            → subject
+      NameFunction         → relation
+      LiteralStringSymbol  → object
+      Operator             → operator
+      KeywordPseudo        → command
+      CommentPreproc       → meta-delim
+      CommentHashbang      → meta-operator
+      NameAttribute        → meta-relation
+      LiteralStringHeredoc → meta-object
+      CommentMultiline     → meta-text
+      CommentSingle        → disabled
+  -->
+  <config>
+    <name>ddot.it</name>
+    <alias>ddot</alias>
+    <alias>ddotit</alias>
+    <alias>ddot.it</alias>
+    <filename>*.ddot</filename>
+    <mime_type>text/x-ddot</mime_type>
+  </config>
+  <rules>
+    <state name="root">
+      <!-- Standalone `,,` opens a free-form meta block. -->
+      <rule pattern="^[ \t]*,,[ \t]*(?=\n|$)">
+        <token type="CommentPreproc"/>
+        <push state="meta_block"/>
+      </rule>
+      <!-- Off marker enters disabled span. -->
+      <rule pattern="^[ \t]*(?:ddot\.it/off|!!off)[ \t]*(?=\n|$)">
+        <token type="KeywordPseudo"/>
+        <push state="disabled"/>
+      </rule>
+      <!-- Empty / whitespace-only line. -->
+      <rule pattern="^[ \t]*\n">
+        <token type="Text"/>
+      </rule>
+      <!-- Residual `\n` after the cascade has popped phase states. -->
+      <rule pattern="\n">
+        <token type="Text"/>
+      </rule>
+      <!-- Continuation line. -->
+      <rule pattern="^(?=[ \t]*\.{2,4})">
+        <push state="after_subject"/>
+      </rule>
+      <!-- Triple line. -->
+      <rule pattern="^">
+        <push state="subject"/>
+      </rule>
+    </state>
+
+    <state name="disabled">
+      <rule pattern="^[ \t]*(?:ddot\.it/on|!!on)[ \t]*(?=\n|$)">
+        <token type="KeywordPseudo"/>
+        <pop depth="1"/>
+      </rule>
+      <rule pattern="^[ \t]*\n">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="[^\n]+">
+        <token type="CommentSingle"/>
+      </rule>
+      <rule pattern="\n">
+        <token type="Text"/>
+      </rule>
+    </state>
+
+    <state name="meta_block">
+      <rule pattern="^[ \t]*,,[ \t]*(?=\n|$)">
+        <token type="CommentPreproc"/>
+        <pop depth="1"/>
+      </rule>
+      <rule pattern="^[ \t]*\n">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="[^\n]+">
+        <token type="CommentMultiline"/>
+      </rule>
+      <rule pattern="\n">
+        <token type="Text"/>
+      </rule>
+    </state>
+
+    <state name="subject">
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="(?:ddot\.it(?:/[\w.\-]+)?|!![\w.\-]*)(?=[ \t]+\.{2,4}|[ \t]*,,|[ \t]*$|\n|$)">
+        <token type="KeywordPseudo"/>
+        <push state="after_subject"/>
+      </rule>
+      <rule pattern="[^\s.,][^\n,]*?(?=[ \t]+\.{2,4}|[ \t]*,,|[ \t]*$|\n|$)">
+        <token type="NameClass"/>
+        <push state="after_subject"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+
+    <state name="after_subject">
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="\.{2}[ \t]+\.{2}">
+        <token type="Operator"/>
+        <push state="object"/>
+      </rule>
+      <rule pattern="\.{4}">
+        <token type="Operator"/>
+        <push state="object"/>
+      </rule>
+      <rule pattern="\.{2}">
+        <token type="Operator"/>
+        <push state="relation"/>
+      </rule>
+      <rule pattern=",,">
+        <token type="CommentPreproc"/>
+        <push state="inline_meta"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+
+    <state name="relation">
+      <rule pattern="[^\s.,][^\n.,]*?(?=[ \t]*\.{2}|[ \t]*$|\n|$)">
+        <token type="NameFunction"/>
+        <push state="after_relation"/>
+      </rule>
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+
+    <state name="after_relation">
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="\.{2}">
+        <token type="Operator"/>
+        <push state="object"/>
+      </rule>
+      <rule pattern=",,">
+        <token type="CommentPreproc"/>
+        <push state="inline_meta"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+
+    <state name="object">
+      <rule pattern="[^\s,][^\n,]*?(?=[ \t]*,,|[ \t]*$|\n|$)">
+        <token type="LiteralStringSymbol"/>
+        <push state="after_object"/>
+      </rule>
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+
+    <state name="after_object">
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern=",,(?=[ \t]*(?:\n|$))">
+        <token type="CommentPreproc"/>
+        <push state="typed_meta_open"/>
+      </rule>
+      <rule pattern=",,">
+        <token type="CommentPreproc"/>
+        <push state="inline_meta"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+
+    <state name="typed_meta_open">
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="\n">
+        <token type="Text"/>
+        <push state="typed_meta_block"/>
+      </rule>
+    </state>
+
+    <state name="typed_meta_block">
+      <rule pattern="^[ \t]*,,[ \t]*(?=\n|$)">
+        <token type="CommentPreproc"/>
+        <pop depth="1"/>
+      </rule>
+      <rule pattern="^[ \t]*\n">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="^(?=[ \t]*\.{2,4})">
+        <push state="typed_meta_op1"/>
+      </rule>
+      <rule pattern="[^\n]+">
+        <token type="CommentMultiline"/>
+      </rule>
+      <rule pattern="\n">
+        <token type="Text"/>
+      </rule>
+    </state>
+
+    <state name="typed_meta_op1">
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="\.{2}">
+        <token type="CommentHashbang"/>
+        <push state="typed_meta_relation"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+
+    <state name="typed_meta_relation">
+      <rule pattern="[^\s.,][^\n.,]*?(?=[ \t]*\.{2}|[ \t]*$|\n|$)">
+        <token type="NameAttribute"/>
+        <push state="typed_meta_after_relation"/>
+      </rule>
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+
+    <state name="typed_meta_after_relation">
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="\.{2}">
+        <token type="CommentHashbang"/>
+        <push state="typed_meta_object"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+
+    <state name="typed_meta_object">
+      <rule pattern="[^\s,][^\n,]*?(?=[ \t]*$|\n|$)">
+        <token type="LiteralStringHeredoc"/>
+        <push state="typed_meta_after_object"/>
+      </rule>
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+
+    <state name="typed_meta_after_object">
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+
+    <state name="inline_meta">
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="\.{2}">
+        <token type="CommentHashbang"/>
+        <push state="inline_meta_relation"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+
+    <state name="inline_meta_relation">
+      <rule pattern="[^\s.,][^\n.,]*?(?=[ \t]*\.{2}|[ \t]*$|\n|$)">
+        <token type="NameAttribute"/>
+        <push state="inline_meta_after_relation"/>
+      </rule>
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+
+    <state name="inline_meta_after_relation">
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="\.{2}">
+        <token type="CommentHashbang"/>
+        <push state="inline_meta_object"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+
+    <state name="inline_meta_object">
+      <rule pattern="[^\s,][^\n,]*?(?=[ \t]*$|\n|$)">
+        <token type="LiteralStringHeredoc"/>
+        <push state="after_object"/>
+      </rule>
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+  </rules>
+</lexer>

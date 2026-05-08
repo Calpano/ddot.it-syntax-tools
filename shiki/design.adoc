@@ -1,0 +1,61 @@
+= Shiki integration — design notes
+:toc:
+
+Shiki consumes a TextMate grammar through `vscode-textmate` under the
+hood, so the only thing this package contributes is a small wrapper
+around the canonical `@calpano/ddot-textmate-grammar`.
+
+== Wrapper shape
+
+A Shiki `LanguageRegistration` is a TextMate grammar plus a few metadata
+fields (`name`, `scopeName`, `aliases`, `fileTypes`, optional
+`embeddedLangs`). We spread the grammar object and add the four metadata
+fields:
+
+[source,js]
+----
+export const ddotLanguage = {
+  ...grammar,
+  name: 'ddot.it',
+  scopeName: 'source.ddot',
+  aliases: ['ddot', 'ddotit'],
+  fileTypes: ['ddot'],
+};
+----
+
+== Don't list the language `name` in `aliases`
+
+`name: 'ddot.it'` plus `aliases: ['ddot.it', 'ddot', 'ddotit']` triggers
+a Shiki-side `Circular alias 'ddot.it -> ddot.it'` error during
+`createHighlighter()`. List only the actual aliases.
+
+== Token offsets are document-relative, not line-relative
+
+`highlighter.codeToTokensBase(code, { lang, includeExplanation: 'scopeName' })`
+returns a 2-D array of themed tokens, one row per line. Each token's
+`offset` is the position in the *whole document*, not relative to its
+line. Conformance tooling that wants per-line `(start, end)` columns must
+pre-compute line-start offsets and subtract:
+
+[source,js]
+----
+const lineStarts = [0];
+for (let i = 0; i < lines.length - 1; i++) {
+  lineStarts.push(lineStarts[i] + lines[i].length + 1); // +1 for \n
+}
+// in the per-line loop:
+const start = tok.offset - lineStarts[lineIdx];
+----
+
+Raw `vscode-textmate` returns line-relative offsets, so the Shiki
+harness can't reuse the TextMate harness 1:1.
+
+== Reaching scope stacks under themed tokens
+
+By default Shiki returns themed tokens (`{ content, color, fontStyle }`).
+To get the underlying scope stacks, pass `includeExplanation: 'scopeName'`
+— each themed token grows an `explanation: [{ content, scopes: [{scopeName}…] }]`
+field, with one entry per scope-distinct sub-segment. A single themed
+token can contain multiple explanations (themes coalesce by color, not
+by scope), so the harness iterates explanations rather than top-level
+tokens.

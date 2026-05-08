@@ -1,0 +1,58 @@
+= TextMate grammar — design notes
+:toc:
+
+The canonical artifact every other implementation in this repo conforms to.
+Source-of-truth file: `ddot.tmLanguage.json`.
+
+== Pattern ordering hazard (typed vs untyped triples)
+
+The typed-triple regex's relation slot is `(?:(?!\.\.|,,).)+?` — any
+character that isn't part of `..` or `,,`, including whitespace. For
+input `Alpha .. .. Beta` this happily matches as a TYPED triple with
+relation = ` ` (a single space) and emits a phantom `entity.name.relation.ddot`
+on that one space. The untyped pattern (`subject (....|.. ..) object`)
+must therefore be listed *before* the typed pattern in both the `triples`
+and `additional` repositories, so untyped wins for inputs like `.. ..`
+and typed only fires when there's actual relation text.
+
+This bites in symmetric ways for the parsers (`DdotEventExporter.java`,
+VS Code `parseDocument`): same regex, same hazard. Both fall through to
+"untyped" when a typed match yields empty relation. See
+`ddot.it-vscode/src/extension.ts` and the corresponding Java code.
+
+== Inline-metadata sub-tokens
+
+The `metadata_triples` patterns originally used `^\s*` anchors so they
+only fired at the start of a line (block-metadata bodies). Inline
+metadata `,, ..since.. 2025` lives mid-line, so anchored patterns never
+matched, and the inline operators / relation / object got the parent
+`comment.metadata.ddot` scope only. Drop the `^` anchors — `\s*` alone
+works for both inline and block contexts because the engine already
+positions at the start of the inner content for block-metadata.
+
+== Off / on disabled span
+
+Modeled as a single `comment.block.disabled.ddot` begin/end pattern at
+the *top* of the patterns array (so it pre-empts triple/metadata
+parsing). The off and on markers themselves keep `keyword.control.ddot`
+via `beginCaptures` / `endCaptures`. The body between is one flat
+comment scope per the spec — themes render it greyed, downstream
+tooling ignores it. Both `ddot.it/off`–`ddot.it/on` and the `!!off`–`!!on`
+shorthand are supported in the same regex alternation.
+
+== End-of-line offset quirk
+
+`vscode-textmate` extends the last token of a line past `line.length`
+(by 1) when a rule consumes through `$` — e.g. trailing `,,` opening a
+metadata block, or the body of an off-span. Tooling that consumes raw
+TextMate tokens needs to clamp `endIndex` to `line.length`. This is a
+vscode-textmate output convention, not a grammar issue.
+
+== Operator emission for `.. ..`
+
+In the *fixed* grammar, `\.{2}\s*\.{2}` is one capture inside the
+untyped pattern, and vscode-textmate emits it as one `operator` token
+spanning all 5 chars (`.. ..`). It only appeared "split" in the buggy
+typed-pattern era, where the inner space was scoped as relation by the
+relation capture. The canonical token vocabulary records this as one
+operator token; all sibling implementations must agree.
