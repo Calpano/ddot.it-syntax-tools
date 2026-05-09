@@ -1,6 +1,15 @@
 = ddot.it Syntax Tools
 :toc:
 
+image:https://github.com/Calpano/ddot.it-syntax-tools/actions/workflows/conformance.yml/badge.svg[Conformance,link=https://github.com/Calpano/ddot.it-syntax-tools/actions/workflows/conformance.yml]
+image:https://img.shields.io/npm/v/@calpano/ddot-textmate-grammar?label=textmate-grammar[npm: @calpano/ddot-textmate-grammar,link=https://www.npmjs.com/package/@calpano/ddot-textmate-grammar]
+image:https://img.shields.io/npm/v/@calpano/ddot-shiki?label=shiki[npm: @calpano/ddot-shiki,link=https://www.npmjs.com/package/@calpano/ddot-shiki]
+image:https://img.shields.io/npm/v/@calpano/ddot-highlightjs?label=highlightjs[npm: @calpano/ddot-highlightjs,link=https://www.npmjs.com/package/@calpano/ddot-highlightjs]
+image:https://img.shields.io/npm/v/@calpano/ddot-prismjs?label=prismjs[npm: @calpano/ddot-prismjs,link=https://www.npmjs.com/package/@calpano/ddot-prismjs]
+image:https://img.shields.io/pypi/v/pygments-ddot?label=pygments-ddot[PyPI: pygments-ddot,link=https://pypi.org/project/pygments-ddot/]
+image:https://img.shields.io/gem/v/rouge-ddot?label=rouge-ddot[RubyGems: rouge-ddot,link=https://rubygems.org/gems/rouge-ddot]
+image:https://img.shields.io/badge/license-MIT-blue.svg[License: MIT,link=https://github.com/Calpano/ddot.it-syntax-tools/blob/main/LICENSE]
+
 Per-ecosystem builds of `ddot.it` syntax highlighters and the conformance
 tooling that asserts they all produce the same canonical token stream.
 

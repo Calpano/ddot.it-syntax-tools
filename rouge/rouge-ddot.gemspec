@@ -19,6 +19,7 @@ Gem::Specification.new do |s|
   s.files = Dir[
     'lib/**/*.rb',
     'README.md',
+    'CHANGELOG.md',
     'rouge-ddot.gemspec'
   ]
   s.require_paths = ['lib']

@@ -1,0 +1,54 @@
+# Keeps GitHub Actions, npm, RubyGems, and Python deps fresh. Each
+# ecosystem opens its own PR; pin updates land as a SHA-bump diff so
+# the SHA-pin convention in the workflows survives automated upgrades.
+
+version: 2
+updates:
+  # GitHub Actions used by all four workflows.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  # Top-level npm tooling (vscode-textmate, shiki, highlight.js, prismjs,
+  # plus the file: deps on each implementation package).
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dev-deps:
+        dependency-type: development
+
+  # Each published npm package — Dependabot opens PRs for their own
+  # peer/runtime deps independently.
+  - package-ecosystem: npm
+    directory: /textmate
+    schedule: { interval: weekly }
+  - package-ecosystem: npm
+    directory: /shiki
+    schedule: { interval: weekly }
+  - package-ecosystem: npm
+    directory: /highlightjs
+    schedule: { interval: weekly }
+  - package-ecosystem: npm
+    directory: /prismjs
+    schedule: { interval: weekly }
+
+  # Pygments lexer (pip).
+  - package-ecosystem: pip
+    directory: /pygments
+    schedule:
+      interval: weekly
+
+  # Rouge lexer (Bundler / RubyGems).
+  - package-ecosystem: bundler
+    directory: /rouge
+    schedule:
+      interval: weekly
+
+  # Chroma conformance harness (Go modules).
+  - package-ecosystem: gomod
+    directory: /tools/conformance-chroma
+    schedule:
+      interval: weekly
