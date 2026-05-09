@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write   # required for OIDC trusted publishing
     defaults:
       run:
         working-directory: ddot.it-syntax-tools
@@ -46,11 +47,17 @@ jobs:
       - name: Conformance — Rouge
         run: ruby tools/conformance-rouge.rb
 
+      # Exchange the GitHub OIDC token for a short-lived RubyGems API
+      # key and write it to ~/.gem/credentials so subsequent `gem push`
+      # picks it up. Requires the rouge-ddot gem on RubyGems to have
+      # Calpano/ddot.it-syntax-tools + this workflow file configured as
+      # a trusted publisher.
+      - uses: rubygems/configure-rubygems-credentials@main
+
       # Build the gem, compare local vs RubyGems version, push only if
-      # newer. `gem push` reads its API key from GEM_HOST_API_KEY.
+      # newer. No GEM_HOST_API_KEY env — credentials come from the OIDC
+      # exchange above.
       - name: Build & publish if newer
-        env:
-          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
         run: |
           set -e
           cd rouge

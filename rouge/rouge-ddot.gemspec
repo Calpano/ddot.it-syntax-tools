@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |s|
   s.name        = 'rouge-ddot'
-  s.version     = '0.1.0'
+  s.version     = '0.1.1'
   s.summary     = 'Rouge lexer for ddot.it'
   s.description = 'Syntax highlighter for the ddot.it knowledge graph notation. ' \
                   'Plugs into Rouge so any tool that uses Rouge for source ' \
