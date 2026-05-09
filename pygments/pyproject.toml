@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pygments-ddot"
-version = "0.1.0"
+version = "0.1.1"
 description = "Pygments lexer for ddot.it (Knowledge Graph Notation)."
 readme = "README.md"
 license = { text = "MIT" }
