@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write   # required for OIDC trusted publishing
     defaults:
       run:
         working-directory: ddot.it-syntax-tools
@@ -59,12 +60,12 @@ jobs:
         run: npm run conformance:prismjs
 
       # Publish each package only if its local version is newer than the
-      # registry's. `npm view <name> version` prints the latest published
-      # version, or fails (exit non-zero) if the package doesn't exist
-      # yet — the `|| echo 0.0.0` falls back to 0.0.0 in that case.
+      # registry's. Authentication is via OIDC trusted publishing —
+      # each package on npm has Calpano/ddot.it-syntax-tools + this
+      # workflow file configured as a trusted publisher, so npm CLI
+      # (≥11.5) auto-fetches the OIDC token. No NPM_TOKEN needed.
+      # `--provenance` attaches a sigstore attestation to each publish.
       - name: Publish if newer
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -e
           published=()
@@ -76,7 +77,7 @@ jobs:
             registry_v=$(npm view "$name" version 2>/dev/null || echo "0.0.0")
             if [ "$local_v" != "$registry_v" ]; then
               echo "::group::Publishing $name@$local_v (registry has $registry_v)"
-              npm publish
+              npm publish --provenance
               published+=("$name@$local_v")
               echo "::endgroup::"
             else

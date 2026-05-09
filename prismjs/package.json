@@ -1,6 +1,6 @@
 {
   "name": "@calpano/ddot-prismjs",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Prism.js language definition for ddot.it (Knowledge Graph Notation).",
   "license": "MIT",
   "type": "module",

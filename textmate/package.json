@@ -1,6 +1,6 @@
 {
   "name": "@calpano/ddot-textmate-grammar",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Canonical TextMate grammar for ddot.it (Knowledge Graph Notation). Consumed by VS Code, Shiki, and the cross-implementation conformance harness.",
   "license": "MIT",
   "type": "module",

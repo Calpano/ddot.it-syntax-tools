@@ -1,6 +1,6 @@
 {
   "name": "@calpano/ddot-shiki",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shiki language registration for ddot.it (Knowledge Graph Notation). Wraps @calpano/ddot-textmate-grammar so any Shiki highlighter can pick up ddot.it.",
   "license": "MIT",
   "type": "module",
