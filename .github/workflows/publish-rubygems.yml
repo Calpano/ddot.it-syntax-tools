@@ -18,6 +18,12 @@ jobs:
     permissions:
       contents: read
       id-token: write   # required for OIDC trusted publishing
+    env:
+      # rubygems/configure-rubygems-credentials@v2.0.0 is still on Node 20,
+      # which GH Actions deprecates on 2026-06-02. Force Node 24 to silence
+      # the runner's deprecation warning until the action ships a Node 24
+      # release. Drop this env var once that happens.
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
     defaults:
       run:
         working-directory: ddot.it-syntax-tools
@@ -52,7 +58,7 @@ jobs:
       # picks it up. Requires the rouge-ddot gem on RubyGems to have
       # Calpano/ddot.it-syntax-tools + this workflow file configured as
       # a trusted publisher.
-      - uses: rubygems/configure-rubygems-credentials@main
+      - uses: rubygems/configure-rubygems-credentials@762a4b77c3300434bb57c7ce80b20e36231927aa # v2.0.0
 
       # Build the gem, compare local vs RubyGems version, push only if
       # newer. No GEM_HOST_API_KEY env — credentials come from the OIDC
