@@ -2,8 +2,9 @@
 // every ../../../ddot.it/test-data/cases/*/input.ddot, map Chroma token types
 // to canonical names, and assert byte equality against expected.tokens.json.
 //
-// Designed to run inside a `golang:1.23` Docker container with the repo
-// mounted at /work — no Go toolchain on the host.
+// Designed to run inside a `golang:1` Docker container (latest Go 1.x, so it
+// always satisfies the go directive in go.mod) with the repo mounted at /work —
+// no Go toolchain on the host.
 package main
 
 import (

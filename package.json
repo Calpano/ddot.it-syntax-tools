@@ -11,7 +11,7 @@
     "conformance:shiki": "node tools/conformance-shiki.mjs",
     "conformance:rouge": "ruby tools/conformance-rouge.rb",
     "conformance:pygments": "python3 tools/conformance-pygments.py",
-    "conformance:chroma": "docker run --rm -v $(cd .. && pwd):/work -w /work/ddot.it-syntax-tools/tools/conformance-chroma golang:1.23 go run .",
+    "conformance:chroma": "docker run --rm -v $(cd .. && pwd):/work -w /work/ddot.it-syntax-tools/tools/conformance-chroma golang:1 go run .",
     "conformance:highlightjs": "node tools/conformance-highlightjs.mjs",
     "conformance:prismjs": "node tools/conformance-prismjs.mjs",
     "conformance": "npm run conformance:textmate && npm run conformance:shiki && npm run conformance:rouge && npm run conformance:pygments && npm run conformance:chroma && npm run conformance:highlightjs && npm run conformance:prismjs",
