@@ -21,7 +21,7 @@
     "@calpano/ddot-shiki": "file:./shiki",
     "highlight.js": "^11.11.1",
     "prismjs": "^1.30.0",
-    "shiki": "^4.1.0",
+    "shiki": "^4.2.0",
     "vscode-oniguruma": "^2.0.1",
     "vscode-textmate": "^9.3.2"
   }
