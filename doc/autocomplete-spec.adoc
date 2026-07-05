@@ -1,0 +1,88 @@
+= Autocomplete Spec
+
+First, what are the different syntax elements?
+We take the naming from link:../textmate/ddot.tmLanguage.json[].
+
+== Scopes
+* `disabled` — a block between `ddot.it/off` (or `!!off`) and `ddot.it/on` (or `!!on`) where syntax is suppressed.
+* _enabled_ — all other character ranges
+** `other` -- text with no ddot interpretation
+** _ddot_ -- ddot syntax
+*** `command`: (`https://ddot.it` | `!!`)(COMMAND)
+*** `triple`
+**** `subject`: ENTITY (**TS** triple subject)
+**** `relation`: `..` (RELATION| SPACE) `..` (**TP** triple property)
+**** `object`: ENTITY (**TO** triple object)
+*** `metadata` — inline or block comment starting with `,,`. Block form ends on a line starting with `,,`; inline form ends at end-of-line.
+**** `text` (**MT** metadata text)
+**** `subject`: ENTITY (**MS** metadata subject)
+**** `relation`: `..` (RELATION| SPACE) `..` (**MP** metadata property)
+**** `object`: ENTITY (**MO** metadata object)
+
+
+== Patterns
+* ENTITY: Any string without DOT at start or end. ENTITY may contain a COMMAND, but still works as entity.
+* RELATION: Any string without DOT at start or end
+* DISABLED_START: `ddot.it/on` | `!!on`
+* DISABLED_END: `ddot.it/off` | `!!off`
+* COMMAND_PREFIX: `!!` | `https://ddot.it`
+* DOT_DOT: `..`
+* META_START: `,,`
+
+== Leaf Scopes
+* DISABLED -- No ddot it interpretation here
+* OTHER
+* COMMAND
+* TS -- triple subject
+* TP -- triple predicate/relation
+* TO -- triple object
+* MT -- meta text
+* MS -- meta triple subject
+* MP -- meta triples predicate/relation
+* MO -- meta triple object
+
+[mermaid]
+....
+stateDiagram-v2
+[*] --> DDOT
+
+    DDOT --> DISABLED : Type DISABLED_START
+    DISABLED --> DDOT : Type DISABLED_END
+    DDOT --> COMMAND : Type COMMAND_PREFIX
+    COMMAND --> DDOT: Type SPACE | NEWLINE
+    DDOT --> TP : Type DOT_DOT
+    TP --> TP: Type
+    DDOT --> TO : Type DOT_DOT
+    TO --> DDOT : NEWLINE
+    TO --> META : Type META_START
+    META --> MP : Type DOT_DOT
+    MP --> MO : DOT_DOT
+    MO --> META : NEWLINE
+....
+
+
+== OLD
+
+
+
+[mermaid]
+....
+stateDiagram-v2
+[*] --> Idle
+
+    Idle --> Fetching : Type trigger char (e.g., '@')
+    Idle --> Fetching : Reach char threshold
+
+    Fetching --> Open : Data loaded successfully
+    Fetching --> Idle : Backspace (below threshold)
+    Fetching --> Fetching : Keystroke (cancel & re-fetch)
+
+    Open --> Navigating : Down/Up Arrow
+    Open --> Fetching : Keystroke (filter change)
+    Open --> Idle : Escape (Click away)
+
+    Navigating --> Navigating : Down/Up Arrow
+    Navigating --> Idle : Enter / Tab (Commit)
+    Navigating --> Fetching : Keystroke (filter change)
+    Navigating --> Idle : Escape (Click away)
+....
