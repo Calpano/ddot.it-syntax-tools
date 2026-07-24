@@ -31,12 +31,12 @@ jobs:
       # Sibling checkouts — `tools/conformance-rouge.rb` reads inputs and
       # goldens from ../ddot.it/test-data/cases/.
       - name: Checkout ddot.it-syntax-tools
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: ddot.it-syntax-tools
 
       - name: Checkout ddot.it (test-data corpus)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Calpano/ddot.it
           path: ddot.it
