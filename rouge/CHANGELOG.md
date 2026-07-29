@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.1.3
+
+No lexer changes — token output is identical to 0.1.2.
+
+### Added
+
+- **`require 'rouge-ddot'` now works.** The gem shipped only
+  `lib/rouge/lexers/ddot.rb`, so requiring it by gem *name* raised
+  `LoadError: cannot load such file -- rouge-ddot`. Since Rouge does not
+  auto-discover third-party lexers, and `Bundler.require` (Jekyll's
+  `:jekyll_plugins` group, Rails initializers, …) requires gems by name,
+  hosts could not load the lexer the conventional way: adding it to a
+  `:jekyll_plugins` group *crashed the build*. Every host therefore had to
+  know the internal path and write `require 'rouge/lexers/ddot'` into a plugin
+  file of its own. A `lib/rouge-ddot.rb` entry point now requires the lexer,
+  so this is enough to highlight `[source,ddot.it]` blocks in Jekyll:
+
+  ```ruby
+  # Gemfile
+  group :jekyll_plugins do
+    gem 'rouge-ddot', '~> 0.1.3'
+  end
+  ```
+
+  `require 'rouge/lexers/ddot'` keeps working unchanged.
+
 ## 0.1.2
 
 Brings the lexer in line with the ddot.it Parse and Highlight specifications.
