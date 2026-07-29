@@ -75,6 +75,18 @@ const INLINE_META = {
   inside: inlineMetaInside,
 };
 
+// Parse Spec "block-continuation": after a block META OBJECT the logical line
+// resumes on a line whose first token is SC2 (`;; ..until.. 2020`) — not a fresh
+// triple with the subject `;;`. Shares INLINE_META's inner grammar; the leading
+// separator is scoped by the wrapper.
+const META_CONTINUATION = {
+  pattern: new RegExp(`^[ \\t]*${SC2}[ \\t]+(?=${DT2})[^\\n]*$`, 'm'),
+  inside: {
+    'meta-separator': new RegExp(`^[ \\t]*${SC2}`),
+    ...inlineMetaInside,
+  },
+};
+
 // ── A triple line's inner grammar ─────────────────────────────────
 const tripleInside = {
   'inline-meta': INLINE_META,
@@ -209,6 +221,8 @@ Prism.languages['ddot.it'] = {
   'block-subject-region': BLOCK_SUBJECT,
   'triple-meta-block-region': TRIPLE_META_BLOCK,
   'meta-block-region': STANDALONE_META_BLOCK,
+  // Before 'triple-line', which would claim the line with the subject `;;`.
+  'meta-continuation': META_CONTINUATION,
   'triple-line': TRIPLE_LINE,
 };
 

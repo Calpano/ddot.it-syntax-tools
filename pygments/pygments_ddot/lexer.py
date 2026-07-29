@@ -141,6 +141,9 @@ class DdotLexer(ExtendedRegexLexer):
             # that a block object preceded: ",," then whitespace then "..".
             (r"^[ \t]*(" + CM2 + r")(?=[ \t]+" + DT2 + r")",
              bygroups(Comment.Preproc), "inline_meta"),
+            # ... and SC2 after a block META OBJECT (`;; ..until.. 2020`).
+            (r"^[ \t]*(" + SC2 + r")(?=[ \t]+" + DT2 + r")",
+             bygroups(Punctuation), "inline_meta"),
             # Off marker enters an excluded span.
             # Recognised ANYWHERE on the line (host-language comments); the whole line
             # is consumed, but only the command itself is coloured.

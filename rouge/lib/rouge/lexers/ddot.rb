@@ -109,13 +109,19 @@ module Rouge
           goto :meta_block
         end
         # Parse Spec "block-continuation": after a block that filled the OBJECT,
-        # a line whose first token is CM2 CONTINUES the logical line as metadata.
+        # a line whose first token is CM2 CONTINUES the logical line as metadata
+        # (and SC2 after a block meta object).
         # Without this it lexes as a fresh triple whose subject is ",," (or, in
         # this lexer, as an unmatched ",," followed by subject "since").
         # Keyed on shape — a state machine over physical lines cannot see that a
         # block object preceded: ",," then whitespace then "..".
         rule(%r/^[ \t]*(#{CM2})(?=[ \t]+#{DT2})/) do |m|
           token Comment::Preproc, m[1]
+          push :inline_meta
+        end
+        # ... and SC2 after a block META OBJECT (`;; ..until.. 2020`).
+        rule(%r/^[ \t]*(#{SC2})(?=[ \t]+#{DT2})/) do |m|
+          token Punctuation, m[1]
           push :inline_meta
         end
         # Off-marker enters an excluded span.

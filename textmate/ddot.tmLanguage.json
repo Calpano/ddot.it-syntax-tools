@@ -594,11 +594,14 @@
       "contentName": "string.unquoted.block.ddot"
     },
     "meta-continuation-line": {
-      "_comment": "Parse Spec 'block-continuation': after a block that filled the OBJECT, a line whose first token is CM2 continues the logical line as metadata — it is not a fresh triple with the subject ',,'. Corpus case 32-chained-blocks. TextMate cannot verify that a block object precedes (that needs parser state), so the rule keys on the shape instead: ',,' followed by whitespace and a meta pair. `,,alone` on a line is #meta-block-standalone, and a subject that merely starts with commas (',,weird ..r.. o') does not match, because the ',,' must be followed by whitespace and a '..'.",
-      "begin": "^[ \\t]*((?<!,),,(?!,))(?=[ \\t]+(?<!\\.)\\.{2}(?!\\.))",
+      "_comment": "Parse Spec 'block-continuation': after a block, the next line CONTINUES the logical line when its first token is one the interrupted position accepts — CM2 after a block OBJECT (',, ..since.. 2016'), SC2 after a block META OBJECT (';; ..until.. 2020'). Neither is a fresh triple whose subject is ',,' / ';;'. Corpus cases 32-chained-blocks and 33-meta-block-continuation. TextMate cannot verify which slot the preceding block filled (that needs parser state), so the rule keys on the shape: the delimiter, whitespace, then a '..' pair. A lone ',,' is #meta-block-standalone, and a subject merely starting with the character (',,weird ..r.. o') does not match.",
+      "begin": "^[ \\t]*(?:((?<!,),,(?!,))|((?<!;);;(?!;)))(?=[ \\t]+(?<!\\.)\\.{2}(?!\\.))",
       "beginCaptures": {
         "1": {
           "name": "punctuation.section.meta.ddot"
+        },
+        "2": {
+          "name": "punctuation.separator.meta.ddot"
         }
       },
       "end": "$",

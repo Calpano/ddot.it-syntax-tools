@@ -73,6 +73,13 @@
         </bygroups>
         <push state="inline_meta"/>
       </rule>
+      <!-- ... and SC2 after a block META OBJECT (`;; ..until.. 2020`). -->
+      <rule pattern="^[ \t]*((?&lt;!;);;(?!;))(?=[ \t]+(?&lt;!\.)\.{2}(?!\.))">
+        <bygroups>
+          <token type="Punctuation"/>
+        </bygroups>
+        <push state="inline_meta"/>
+      </rule>
       <!-- Off marker enters an excluded span. -->
       <!-- Recognised ANYWHERE on the line (host-language comments); the whole line
            is consumed, but only the command itself is coloured. -->

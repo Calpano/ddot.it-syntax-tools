@@ -169,6 +169,8 @@ const KNOWN_ENGINE_DIVERGENCE = new Map([
   // (a block subject and a block object on one logical line), so the first
   // terminator is missed and the rest of the case is swallowed as verbatim.
   ["32-chained-blocks", REASON_BLANK_LINE],
+  // Ditto: the !!block filling the meta object is blank-line terminated.
+  ["33-meta-block-continuation", REASON_BLANK_LINE],
 ]);
 
 let failed = 0;

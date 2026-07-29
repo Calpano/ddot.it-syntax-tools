@@ -61,6 +61,17 @@ export default function ddotHighlightJs(/* hljs */) {
     contains: [META_PAIR, META_PAIR_UNTYPED, META_SEPARATOR, META_TEXT],
   };
 
+  // Parse Spec "block-continuation": after a block META OBJECT the logical line
+  // resumes on a line whose first token is SC2 (`;; ..until.. 2020`). Same body
+  // as INLINE_META, but opened by the separator rather than by `,,`. Without it
+  // the line reads as a fresh triple whose subject is `;;`.
+  const META_CONTINUATION = {
+    begin: [/^[ \t]*/, SC2, /(?=[ \t]+)/],
+    beginScope: { 2: 'meta-separator' },
+    end: /$/,
+    contains: [META_PAIR, META_PAIR_UNTYPED, META_SEPARATOR, META_TEXT],
+  };
+
   // ── !!block: a verbatim region terminated by a blank line ────────
   // The `?end=MARKER` form needs the terminator to equal text captured
   // earlier, which hljs cannot express; see the waiver in the conformance
@@ -230,6 +241,7 @@ export default function ddotHighlightJs(/* hljs */) {
       blockObject(CMD, 'command', NAME_REL, 'relation'),
       blockObject(NAME_SUBJ, 'subject', CMD, 'command'),
       blockObject(NAME_SUBJ, 'subject', NAME_REL, 'relation'),
+      META_CONTINUATION,
       STANDALONE_BLOCK_META,
       TYPED_CONT_BLOCK_META,
       typedBlockMeta(CMD, 'command'),
