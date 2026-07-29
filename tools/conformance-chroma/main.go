@@ -20,17 +20,22 @@ import (
 
 // Chroma token type → canonical name (see test-data/tokens.md).
 var tokenToCanonical = map[chroma.TokenType]string{
-	chroma.NameClass:            "subject",
-	chroma.NameFunction:         "relation",
-	chroma.LiteralStringSymbol:  "object",
-	chroma.Operator:             "operator",
-	chroma.KeywordPseudo:        "command",
-	chroma.CommentPreproc:       "meta-delim",
-	chroma.CommentHashbang:      "meta-operator",
-	chroma.NameAttribute:        "meta-relation",
-	chroma.LiteralStringHeredoc: "meta-object",
-	chroma.CommentMultiline:     "meta-text",
-	chroma.CommentSingle:        "disabled",
+	chroma.NameClass:             "subject",
+	chroma.NameFunction:          "relation",
+	chroma.LiteralStringSymbol:   "object",
+	chroma.Operator:              "doubledot",
+	chroma.KeywordPseudo:         "command",
+	chroma.CommentPreproc:        "meta-delim",
+	chroma.CommentHashbang:       "meta-doubledot",
+	chroma.NameAttribute:         "meta-relation",
+	chroma.LiteralStringHeredoc:  "meta-object",
+	chroma.CommentMultiline:      "meta-text",
+	chroma.CommentSingle:         "excluded",
+	chroma.Punctuation:           "meta-separator",
+	chroma.LiteralStringBacktick: "verbatim",
+	// Only the `!!block?end=MARKER` form produces these two.
+	chroma.NameDecorator:         "command-param",
+	chroma.NameLabel:             "block-end",
 }
 
 type goldenTok struct {
@@ -169,7 +174,10 @@ func main() {
 	}
 	sort.Strings(caseNames)
 
+	knownUnsupported := map[string]string{}
+
 	var failures []string
+	var waived int
 	for _, name := range caseNames {
 		dir := filepath.Join(casesDir, name)
 		input, err := os.ReadFile(filepath.Join(dir, "input.ddot"))
@@ -195,7 +203,17 @@ func main() {
 			continue
 		}
 		if equalTokens(actual, expected) {
+			if reason, ok := knownUnsupported[name]; ok {
+				failures = append(failures, name)
+				fmt.Printf("FAIL  %s — now PASSES; remove the waiver (%s)\n", name, reason)
+				continue
+			}
 			fmt.Printf("ok    %s\n", name)
+			continue
+		}
+		if reason, ok := knownUnsupported[name]; ok {
+			waived++
+			fmt.Printf("WAIVED %s — %s\n", name, reason)
 			continue
 		}
 		failures = append(failures, name)
@@ -208,6 +226,9 @@ func main() {
 	if len(failures) > 0 {
 		fmt.Fprintf(os.Stderr, "\n%d/%d cases diverge: %s\n", len(failures), len(caseNames), strings.Join(failures, ", "))
 		os.Exit(1)
+	}
+	if waived > 0 {
+		fmt.Printf("\n%d case(s) waived (not expressible in Chroma XML)\n", waived)
 	}
 	fmt.Printf("\nall %d cases pass\n", len(caseNames))
 }

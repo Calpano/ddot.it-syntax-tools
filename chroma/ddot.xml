@@ -1,26 +1,40 @@
 <lexer>
   <!--
     Chroma lexer for ddot.it (https://ddot.it).
-    Direct port of the Pygments lexer (../pygments/pygments_ddot/lexer.py)
-    and the Rouge lexer (../rouge/lib/rouge/lexers/ddot.rb), but adapted
-    for Chroma's one-mutator-per-rule restriction. Where the others use
-    pop+push as a "goto" between phase states, this lexer uses push-only
-    nesting, with each non-root state carrying a `(?=\n)` rule that pops
-    one. On end-of-line the pops cascade until we're back in root, which
-    then consumes the literal `\n`.
+    Port of the Pygments lexer (../pygments/pygments_ddot/lexer.py) and the
+    Rouge lexer (../rouge/lib/rouge/lexers/ddot.rb), adapted for Chroma's
+    one-mutator-per-rule restriction. Where the others use pop+push as a
+    "goto" between phase states, this lexer uses push-only nesting, with each
+    non-root state carrying a `(?=\n)` rule that pops one. On end-of-line the
+    pops cascade until we are back in root, which then consumes the `\n`.
+
+    That cascade is also how a !!block returns: `verbatim` pops ONE level on
+    its terminating blank line and deliberately does NOT consume the newline,
+    so the pops carry on up to root regardless of which slot opened the block.
+
+    `!!block?end=MARKER` needs a terminator equal to text captured EARLIER, and
+    Chroma XML has no callbacks or state variables, so no per-line rule can refer
+    back to it. It is handled instead by matching the WHOLE construct — opener,
+    body and terminator — in a single rule: Chroma compiles with regexp2, which
+    supports backreferences, and `bygroups` colours the parts. The groups must
+    TILE the match, because bygroups silently drops matched text that no group
+    covers. Corpus case 21-block-end-marker; the blank-line form (17, 29, 30) is
+    still handled per-line by the `verbatim` state.
 
     Token mapping (Chroma → canonical, see ../../ddot.it/test-data/tokens.md):
-      NameClass            → subject
-      NameFunction         → relation
-      LiteralStringSymbol  → object
-      Operator             → operator
-      KeywordPseudo        → command
-      CommentPreproc       → meta-delim
-      CommentHashbang      → meta-operator
-      NameAttribute        → meta-relation
-      LiteralStringHeredoc → meta-object
-      CommentMultiline     → meta-text
-      CommentSingle        → disabled
+      NameClass             → subject
+      NameFunction          → relation
+      LiteralStringSymbol   → object
+      Operator              → doubledot
+      KeywordPseudo         → command
+      CommentPreproc        → meta-delim
+      Punctuation           → meta-separator
+      CommentHashbang       → meta-doubledot
+      NameAttribute         → meta-relation
+      LiteralStringHeredoc  → meta-object
+      CommentMultiline      → meta-text
+      CommentSingle         → excluded
+      LiteralStringBacktick → verbatim
   -->
   <config>
     <name>ddot.it</name>
@@ -31,16 +45,66 @@
     <mime_type>text/x-ddot</mime_type>
   </config>
   <rules>
+    <!--
+      Lexical tokens: runs of EXACTLY n, neither preceded nor followed by the
+      same character. regexp2 (which Chroma uses) supports the lookarounds that
+      express this; plain `\.{2}` would match the first two dots of `...`.
+        DT2  (?<!\.)\.{2}(?!\.)
+        QUAD (?<!\.)(?:\.{4}|\.{2}[ \t]+\.{2})(?!\.)
+        CM2  (?<!,),,(?!,)
+        SC2  (?<!;);;(?!;)
+      GATE: a line is ddot.it only with a full operator skeleton — two DT2, or
+      one DT4 / '.. ..'. A lone `..` in prose does not qualify (23-not-a-triple).
+    -->
     <state name="root">
       <!-- Standalone `,,` opens a free-form meta block. -->
-      <rule pattern="^[ \t]*,,[ \t]*(?=\n|$)">
+      <rule pattern="^[ \t]*(?&lt;!,),,(?!,)[ \t]*(?=\n|$)">
         <token type="CommentPreproc"/>
         <push state="meta_block"/>
       </rule>
-      <!-- Off marker enters disabled span. -->
-      <rule pattern="^[ \t]*(?:ddot\.it/off|!!off)[ \t]*(?=\n|$)">
-        <token type="KeywordPseudo"/>
+      <!-- Parse Spec "block-continuation": after a block that filled the OBJECT, a
+           line whose first token is CM2 CONTINUES the logical line as metadata; it is
+           NOT a fresh triple with the subject ",,". Keyed on shape (",," then
+           whitespace then ".."), because a per-line state machine cannot see the
+           preceding block. Corpus case 32-chained-blocks. -->
+      <rule pattern="^[ \t]*((?&lt;!,),,(?!,))(?=[ \t]+(?&lt;!\.)\.{2}(?!\.))">
+        <bygroups>
+          <token type="CommentPreproc"/>
+        </bygroups>
+        <push state="inline_meta"/>
+      </rule>
+      <!-- Off marker enters an excluded span. -->
+      <!-- Recognised ANYWHERE on the line (host-language comments); the whole line
+           is consumed, but only the command itself is coloured. -->
+      <rule pattern="^([^\n]*?)((?:ddot\.it/off|!!off)(?![^\s?#]))([^\n]*)(?=\n|$)">
+        <bygroups>
+          <token type="Text"/>
+          <token type="KeywordPseudo"/>
+          <token type="Text"/>
+        </bygroups>
         <push state="disabled"/>
+      </rule>
+      <!-- `!!block?end=MARKER`: the terminator repeats text captured EARLIER, which
+           no per-line rule can refer back to. Chroma compiles with regexp2, so the
+           whole construct — opener, body and terminator — is matched by ONE regex
+           using a backreference, and coloured with bygroups. -->
+      <rule pattern="^([ \t]*)((?:(?:https?://)?ddot\.it/|!!)block)(\?end=)(\S+)([ \t]*\n)((?:[^\n]*\n)*?)([ \t]*)(\4)([ \t]*)(?=\n|$)">
+        <bygroups>
+          <token type="Text"/>
+          <token type="KeywordPseudo"/>
+          <token type="NameDecorator"/>
+          <token type="NameLabel"/>
+          <token type="Text"/>
+          <token type="LiteralStringBacktick"/>
+          <token type="Text"/>
+          <token type="NameLabel"/>
+          <token type="Text"/>
+        </bygroups>
+      </rule>
+      <!-- `!!block` alone on a line = a SUBJECT opener (block-as-field). -->
+      <rule pattern="^[ \t]*(?:(?:https?://)?ddot\.it/|!!)block[ \t]*(?=\n|$)">
+        <token type="KeywordPseudo"/>
+        <push state="verbatim"/>
       </rule>
       <!-- Empty / whitespace-only line. -->
       <rule pattern="^[ \t]*\n">
@@ -50,19 +114,42 @@
       <rule pattern="\n">
         <token type="Text"/>
       </rule>
-      <!-- Continuation line. -->
-      <rule pattern="^(?=[ \t]*\.{2,4})">
+      <!-- Gated continuation line (starts with the operator). -->
+      <rule pattern="^(?=[^\n]*(?:(?&lt;!\.)\.{4}(?!\.)|(?&lt;!\.)\.{2}(?!\.)[^\n]*(?&lt;!\.)\.{2}(?!\.)))(?=[ \t]*(?:(?&lt;!\.)\.{2}(?!\.)|(?&lt;!\.)(?:\.{4}|\.{2}[ \t]+\.{2})(?!\.)))">
         <push state="after_subject"/>
       </rule>
-      <!-- Triple line. -->
-      <rule pattern="^">
+      <!-- Gated triple line. -->
+      <rule pattern="^(?=[^\n]*(?:(?&lt;!\.)\.{4}(?!\.)|(?&lt;!\.)\.{2}(?!\.)[^\n]*(?&lt;!\.)\.{2}(?!\.)))">
         <push state="subject"/>
+      </rule>
+      <!-- Not a triple: consume the line, emit no ddot.it token. -->
+      <rule pattern="[^\n]+">
+        <token type="Text"/>
+      </rule>
+    </state>
+
+    <!-- A !!block body. Pops ONE level on the blank line WITHOUT consuming the
+         newline, so root's cascade carries us the rest of the way back. -->
+    <state name="verbatim">
+      <rule pattern="^[ \t]*(?=\n|$)">
+        <token type="Text"/>
+        <pop depth="1"/>
+      </rule>
+      <rule pattern="^[^\n]+">
+        <token type="LiteralStringBacktick"/>
+      </rule>
+      <rule pattern="\n">
+        <token type="Text"/>
       </rule>
     </state>
 
     <state name="disabled">
-      <rule pattern="^[ \t]*(?:ddot\.it/on|!!on)[ \t]*(?=\n|$)">
-        <token type="KeywordPseudo"/>
+      <rule pattern="^([^\n]*?)((?:ddot\.it/on|!!on)(?![^\s?#]))([^\n]*)(?=\n|$)">
+        <bygroups>
+          <token type="Text"/>
+          <token type="KeywordPseudo"/>
+          <token type="Text"/>
+        </bygroups>
         <pop depth="1"/>
       </rule>
       <rule pattern="^[ \t]*\n">
@@ -77,12 +164,15 @@
     </state>
 
     <state name="meta_block">
-      <rule pattern="^[ \t]*,,[ \t]*(?=\n|$)">
+      <rule pattern="^[ \t]*(?&lt;!,),,(?!,)[ \t]*(?=\n|$)">
         <token type="CommentPreproc"/>
         <pop depth="1"/>
       </rule>
       <rule pattern="^[ \t]*\n">
         <token type="Text"/>
+      </rule>
+      <rule pattern="^(?=[ \t]*(?:(?&lt;!\.)\.{2}(?!\.)|(?&lt;!\.)(?:\.{4}|\.{2}[ \t]+\.{2})(?!\.)))">
+        <push state="typed_meta_op"/>
       </rule>
       <rule pattern="[^\n]+">
         <token type="CommentMultiline"/>
@@ -96,11 +186,12 @@
       <rule pattern="[ \t]+">
         <token type="Text"/>
       </rule>
-      <rule pattern="(?:ddot\.it(?:/[\w.\-]+)?|!![\w.\-]*)(?=[ \t]+\.{2,4}|[ \t]*,,|[ \t]*$|\n|$)">
+      <!-- A slot whose text is exactly a command is a command, not a subject. -->
+      <rule pattern="(?:(?:https?://)?ddot\.it/|!!)[^\s?#]+(?:\?[^\s#]*)?(?:\#\S*)?(?=[ \t]*(?:(?&lt;!\.)\.{2}(?!\.)|(?&lt;!\.)(?:\.{4}|\.{2}[ \t]+\.{2})(?!\.))|[ \t]*(?&lt;!,),,(?!,)|[ \t]*$|\n|$)">
         <token type="KeywordPseudo"/>
         <push state="after_subject"/>
       </rule>
-      <rule pattern="[^\s.,][^\n,]*?(?=[ \t]+\.{2,4}|[ \t]*,,|[ \t]*$|\n|$)">
+      <rule pattern="[^\s.,][^\n,]*?(?=[ \t]*(?:(?&lt;!\.)\.{2}(?!\.)|(?&lt;!\.)(?:\.{4}|\.{2}[ \t]+\.{2})(?!\.))|[ \t]*(?&lt;!,),,(?!,)|[ \t]*$|\n|$)">
         <token type="NameClass"/>
         <push state="after_subject"/>
       </rule>
@@ -113,19 +204,16 @@
       <rule pattern="[ \t]+">
         <token type="Text"/>
       </rule>
-      <rule pattern="\.{2}[ \t]+\.{2}">
+      <!-- QuadDot FIRST: '.. ..' is ONE operator, not two. -->
+      <rule pattern="(?&lt;!\.)(?:\.{4}|\.{2}[ \t]+\.{2})(?!\.)">
         <token type="Operator"/>
         <push state="object"/>
       </rule>
-      <rule pattern="\.{4}">
-        <token type="Operator"/>
-        <push state="object"/>
-      </rule>
-      <rule pattern="\.{2}">
+      <rule pattern="(?&lt;!\.)\.{2}(?!\.)">
         <token type="Operator"/>
         <push state="relation"/>
       </rule>
-      <rule pattern=",,">
+      <rule pattern="(?&lt;!,),,(?!,)">
         <token type="CommentPreproc"/>
         <push state="inline_meta"/>
       </rule>
@@ -135,12 +223,16 @@
     </state>
 
     <state name="relation">
-      <rule pattern="[^\s.,][^\n.,]*?(?=[ \t]*\.{2}|[ \t]*$|\n|$)">
-        <token type="NameFunction"/>
-        <push state="after_relation"/>
-      </rule>
       <rule pattern="[ \t]+">
         <token type="Text"/>
+      </rule>
+      <rule pattern="(?:(?:https?://)?ddot\.it/|!!)[^\s?#]+(?:\?[^\s#]*)?(?:\#\S*)?(?=[ \t]*(?&lt;!\.)\.{2}(?!\.)|[ \t]*$|\n|$)">
+        <token type="KeywordPseudo"/>
+        <push state="after_relation"/>
+      </rule>
+      <rule pattern="[^\s.,][^\n.,]*?(?=[ \t]*(?&lt;!\.)\.{2}(?!\.)|[ \t]*$|\n|$)">
+        <token type="NameFunction"/>
+        <push state="after_relation"/>
       </rule>
       <rule pattern="(?=\n)">
         <pop depth="1"/>
@@ -151,11 +243,11 @@
       <rule pattern="[ \t]+">
         <token type="Text"/>
       </rule>
-      <rule pattern="\.{2}">
+      <rule pattern="(?&lt;!\.)\.{2}(?!\.)">
         <token type="Operator"/>
         <push state="object"/>
       </rule>
-      <rule pattern=",,">
+      <rule pattern="(?&lt;!,),,(?!,)">
         <token type="CommentPreproc"/>
         <push state="inline_meta"/>
       </rule>
@@ -164,13 +256,39 @@
       </rule>
     </state>
 
+    <!-- Object := TextExcept{NL,CM2} — it MAY contain `..` (20-object-dotdot),
+         so it runs to end of line or to a `,,`, never stopping at a DT2. -->
     <state name="object">
-      <rule pattern="[^\s,][^\n,]*?(?=[ \t]*,,|[ \t]*$|\n|$)">
-        <token type="LiteralStringSymbol"/>
-        <push state="after_object"/>
-      </rule>
       <rule pattern="[ \t]+">
         <token type="Text"/>
+      </rule>
+      <!-- `!!block?end=MARKER`: the terminator repeats text captured EARLIER, which
+           no per-line rule can refer back to. Chroma compiles with regexp2, so the
+           whole construct — opener, body and terminator — is matched by ONE regex
+           using a backreference, and coloured with bygroups. -->
+      <rule pattern="((?:(?:https?://)?ddot\.it/|!!)block)(\?end=)(\S+)([ \t]*\n)((?:[^\n]*\n)*?)([ \t]*)(\3)([ \t]*)(?=\n|$)">
+        <bygroups>
+          <token type="KeywordPseudo"/>
+          <token type="NameDecorator"/>
+          <token type="NameLabel"/>
+          <token type="Text"/>
+          <token type="LiteralStringBacktick"/>
+          <token type="Text"/>
+          <token type="NameLabel"/>
+          <token type="Text"/>
+        </bygroups>
+      </rule>
+      <rule pattern="(?:(?:https?://)?ddot\.it/|!!)block[ \t]*(?=\n|$)">
+        <token type="KeywordPseudo"/>
+        <push state="verbatim"/>
+      </rule>
+      <rule pattern="(?:(?:https?://)?ddot\.it/|!!)[^\s?#]+(?:\?[^\s#]*)?(?:\#\S*)?(?=[ \t]*(?&lt;!,),,(?!,)|[ \t]*$|\n|$)">
+        <token type="KeywordPseudo"/>
+        <push state="after_object"/>
+      </rule>
+      <rule pattern="[^\s,][^\n,]*?(?=[ \t]*(?&lt;!,),,(?!,)|[ \t]*$|\n|$)">
+        <token type="LiteralStringSymbol"/>
+        <push state="after_object"/>
       </rule>
       <rule pattern="(?=\n)">
         <pop depth="1"/>
@@ -181,11 +299,11 @@
       <rule pattern="[ \t]+">
         <token type="Text"/>
       </rule>
-      <rule pattern=",,(?=[ \t]*(?:\n|$))">
+      <rule pattern="(?&lt;!,),,(?!,)(?=[ \t]*(?:\n|$))">
         <token type="CommentPreproc"/>
-        <push state="typed_meta_open"/>
+        <push state="meta_block_open"/>
       </rule>
-      <rule pattern=",,">
+      <rule pattern="(?&lt;!,),,(?!,)">
         <token type="CommentPreproc"/>
         <push state="inline_meta"/>
       </rule>
@@ -194,7 +312,10 @@
       </rule>
     </state>
 
-    <state name="typed_meta_open">
+    <!-- After a trailing `,,`: consume the newline and enter the block form.
+         Consuming (rather than popping) is the only way to change state here,
+         given one mutator per rule. -->
+    <state name="meta_block_open">
       <rule pattern="[ \t]+">
         <token type="Text"/>
       </rule>
@@ -204,16 +325,21 @@
       </rule>
     </state>
 
+    <!-- Same rules as `meta_block`, but reached via `meta_block_open`, so the
+         closing `,,` must pop BOTH (depth 2) to get back to the triple line's
+         states; the `(?=\n)` cascade then returns to root. Popping only one
+         would leave `meta_block_open` on the stack, and it would re-push this
+         state on the next newline. -->
     <state name="typed_meta_block">
-      <rule pattern="^[ \t]*,,[ \t]*(?=\n|$)">
+      <rule pattern="^[ \t]*(?&lt;!,),,(?!,)[ \t]*(?=\n|$)">
         <token type="CommentPreproc"/>
-        <pop depth="1"/>
+        <pop depth="2"/>
       </rule>
       <rule pattern="^[ \t]*\n">
         <token type="Text"/>
       </rule>
-      <rule pattern="^(?=[ \t]*\.{2,4})">
-        <push state="typed_meta_op1"/>
+      <rule pattern="^(?=[ \t]*(?:(?&lt;!\.)\.{2}(?!\.)|(?&lt;!\.)(?:\.{4}|\.{2}[ \t]+\.{2})(?!\.)))">
+        <push state="typed_meta_op"/>
       </rule>
       <rule pattern="[^\n]+">
         <token type="CommentMultiline"/>
@@ -223,11 +349,15 @@
       </rule>
     </state>
 
-    <state name="typed_meta_op1">
+    <state name="typed_meta_op">
       <rule pattern="[ \t]+">
         <token type="Text"/>
       </rule>
-      <rule pattern="\.{2}">
+      <rule pattern="(?&lt;!\.)(?:\.{4}|\.{2}[ \t]+\.{2})(?!\.)">
+        <token type="CommentHashbang"/>
+        <push state="typed_meta_object"/>
+      </rule>
+      <rule pattern="(?&lt;!\.)\.{2}(?!\.)">
         <token type="CommentHashbang"/>
         <push state="typed_meta_relation"/>
       </rule>
@@ -237,12 +367,16 @@
     </state>
 
     <state name="typed_meta_relation">
-      <rule pattern="[^\s.,][^\n.,]*?(?=[ \t]*\.{2}|[ \t]*$|\n|$)">
-        <token type="NameAttribute"/>
-        <push state="typed_meta_after_relation"/>
-      </rule>
       <rule pattern="[ \t]+">
         <token type="Text"/>
+      </rule>
+      <rule pattern="(?:(?:https?://)?ddot\.it/|!!)[^\s?#]+(?:\?[^\s#]*)?(?:\#\S*)?(?=[ \t]*(?&lt;!\.)\.{2}(?!\.)|[ \t]*$|\n|$)">
+        <token type="KeywordPseudo"/>
+        <push state="typed_meta_after_relation"/>
+      </rule>
+      <rule pattern="[^\s.,][^\n.,]*?(?=[ \t]*(?&lt;!\.)\.{2}(?!\.)|[ \t]*$|\n|$)">
+        <token type="NameAttribute"/>
+        <push state="typed_meta_after_relation"/>
       </rule>
       <rule pattern="(?=\n)">
         <pop depth="1"/>
@@ -253,7 +387,7 @@
       <rule pattern="[ \t]+">
         <token type="Text"/>
       </rule>
-      <rule pattern="\.{2}">
+      <rule pattern="(?&lt;!\.)\.{2}(?!\.)">
         <token type="CommentHashbang"/>
         <push state="typed_meta_object"/>
       </rule>
@@ -262,13 +396,35 @@
       </rule>
     </state>
 
+    <!-- MetaObjectInBlock := TextExcept{NL} — `;;` is CONTENT here, not a
+         separator (that is the inline form). See 28-semicolon-in-meta-block. -->
     <state name="typed_meta_object">
-      <rule pattern="[^\s,][^\n,]*?(?=[ \t]*$|\n|$)">
-        <token type="LiteralStringHeredoc"/>
-        <push state="typed_meta_after_object"/>
-      </rule>
       <rule pattern="[ \t]+">
         <token type="Text"/>
+      </rule>
+      <!-- `!!block?end=MARKER`: the terminator repeats text captured EARLIER, which
+           no per-line rule can refer back to. Chroma compiles with regexp2, so the
+           whole construct — opener, body and terminator — is matched by ONE regex
+           using a backreference, and coloured with bygroups. -->
+      <rule pattern="((?:(?:https?://)?ddot\.it/|!!)block)(\?end=)(\S+)([ \t]*\n)((?:[^\n]*\n)*?)([ \t]*)(\3)([ \t]*)(?=\n|$)">
+        <bygroups>
+          <token type="KeywordPseudo"/>
+          <token type="NameDecorator"/>
+          <token type="NameLabel"/>
+          <token type="Text"/>
+          <token type="LiteralStringBacktick"/>
+          <token type="Text"/>
+          <token type="NameLabel"/>
+          <token type="Text"/>
+        </bygroups>
+      </rule>
+      <rule pattern="(?:(?:https?://)?ddot\.it/|!!)block[ \t]*(?=\n|$)">
+        <token type="KeywordPseudo"/>
+        <push state="verbatim"/>
+      </rule>
+      <rule pattern="[^\s][^\n]*?(?=[ \t]*$|\n|$)">
+        <token type="LiteralStringHeredoc"/>
+        <push state="typed_meta_after_object"/>
       </rule>
       <rule pattern="(?=\n)">
         <pop depth="1"/>
@@ -285,10 +441,31 @@
     </state>
 
     <state name="inline_meta">
+      <!-- A `..` / `....` right after the `,,` selects the triple form… -->
+      <rule pattern="(?=[ \t]*(?:(?&lt;!\.)\.{2}(?!\.)|(?&lt;!\.)(?:\.{4}|\.{2}[ \t]+\.{2})(?!\.)))">
+        <push state="inline_meta_op"/>
+      </rule>
+      <!-- …anything else is free-form meta text, trimmed of surrounding WS. -->
       <rule pattern="[ \t]+">
         <token type="Text"/>
       </rule>
-      <rule pattern="\.{2}">
+      <rule pattern="[^\s][^\n]*?(?=[ \t]*$|\n|$)">
+        <token type="CommentMultiline"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+
+    <state name="inline_meta_op">
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="(?&lt;!\.)(?:\.{4}|\.{2}[ \t]+\.{2})(?!\.)">
+        <token type="CommentHashbang"/>
+        <push state="inline_meta_object"/>
+      </rule>
+      <rule pattern="(?&lt;!\.)\.{2}(?!\.)">
         <token type="CommentHashbang"/>
         <push state="inline_meta_relation"/>
       </rule>
@@ -298,12 +475,16 @@
     </state>
 
     <state name="inline_meta_relation">
-      <rule pattern="[^\s.,][^\n.,]*?(?=[ \t]*\.{2}|[ \t]*$|\n|$)">
-        <token type="NameAttribute"/>
-        <push state="inline_meta_after_relation"/>
-      </rule>
       <rule pattern="[ \t]+">
         <token type="Text"/>
+      </rule>
+      <rule pattern="(?:(?:https?://)?ddot\.it/|!!)[^\s?#]+(?:\?[^\s#]*)?(?:\#\S*)?(?=[ \t]*(?&lt;!\.)\.{2}(?!\.)|[ \t]*$|\n|$)">
+        <token type="KeywordPseudo"/>
+        <push state="inline_meta_after_relation"/>
+      </rule>
+      <rule pattern="[^\s.,][^\n.,]*?(?=[ \t]*(?&lt;!\.)\.{2}(?!\.)|[ \t]*$|\n|$)">
+        <token type="NameAttribute"/>
+        <push state="inline_meta_after_relation"/>
       </rule>
       <rule pattern="(?=\n)">
         <pop depth="1"/>
@@ -314,7 +495,7 @@
       <rule pattern="[ \t]+">
         <token type="Text"/>
       </rule>
-      <rule pattern="\.{2}">
+      <rule pattern="(?&lt;!\.)\.{2}(?!\.)">
         <token type="CommentHashbang"/>
         <push state="inline_meta_object"/>
       </rule>
@@ -323,13 +504,48 @@
       </rule>
     </state>
 
+    <!-- MetaObjectInline := TextExcept{NL,SC2} — stops at `;;`. -->
     <state name="inline_meta_object">
-      <rule pattern="[^\s,][^\n,]*?(?=[ \t]*$|\n|$)">
-        <token type="LiteralStringHeredoc"/>
-        <push state="after_object"/>
-      </rule>
       <rule pattern="[ \t]+">
         <token type="Text"/>
+      </rule>
+      <!-- `!!block?end=MARKER`: the terminator repeats text captured EARLIER, which
+           no per-line rule can refer back to. Chroma compiles with regexp2, so the
+           whole construct — opener, body and terminator — is matched by ONE regex
+           using a backreference, and coloured with bygroups. -->
+      <rule pattern="((?:(?:https?://)?ddot\.it/|!!)block)(\?end=)(\S+)([ \t]*\n)((?:[^\n]*\n)*?)([ \t]*)(\3)([ \t]*)(?=\n|$)">
+        <bygroups>
+          <token type="KeywordPseudo"/>
+          <token type="NameDecorator"/>
+          <token type="NameLabel"/>
+          <token type="Text"/>
+          <token type="LiteralStringBacktick"/>
+          <token type="Text"/>
+          <token type="NameLabel"/>
+          <token type="Text"/>
+        </bygroups>
+      </rule>
+      <rule pattern="(?:(?:https?://)?ddot\.it/|!!)block[ \t]*(?=\n|$)">
+        <token type="KeywordPseudo"/>
+        <push state="verbatim"/>
+      </rule>
+      <rule pattern="[^\s;][^\n;]*?(?=[ \t]*(?&lt;!;);;(?!;)|[ \t]*$|\n|$)">
+        <token type="LiteralStringHeredoc"/>
+        <push state="inline_meta_next"/>
+      </rule>
+      <rule pattern="(?=\n)">
+        <pop depth="1"/>
+      </rule>
+    </state>
+
+    <!-- `;;` divides several (relation, object) pairs about one triple. -->
+    <state name="inline_meta_next">
+      <rule pattern="[ \t]+">
+        <token type="Text"/>
+      </rule>
+      <rule pattern="(?&lt;!;);;(?!;)">
+        <token type="Punctuation"/>
+        <push state="inline_meta_op"/>
       </rule>
       <rule pattern="(?=\n)">
         <pop depth="1"/>

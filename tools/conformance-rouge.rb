@@ -28,14 +28,18 @@ ROUGE_TO_CANONICAL = {
   'Name.Class'              => 'subject',
   'Name.Function'           => 'relation',
   'Literal.String.Symbol'   => 'object',
-  'Operator'                => 'operator',
+  'Operator'                => 'doubledot',
   'Keyword.Pseudo'          => 'command',
   'Comment.Preproc'         => 'meta-delim',
-  'Comment.Hashbang'        => 'meta-operator',
+  'Comment.Hashbang'        => 'meta-doubledot',
   'Comment.Doc'             => 'meta-relation',
   'Comment.Special'         => 'meta-object',
   'Comment.Multiline'       => 'meta-text',
-  'Comment.Single'          => 'disabled'
+  'Comment.Single'          => 'excluded',
+  'Punctuation'             => 'meta-separator',
+  'Literal.String.Backtick' => 'verbatim',
+  'Name.Label'              => 'block-end',
+  'Name.Attribute'          => 'command-param'
 }.freeze
 
 # Tokenize and produce flat [{line,start,end,token,text}] entries, dropping

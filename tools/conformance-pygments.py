@@ -25,6 +25,7 @@ from pygments.token import (  # noqa: E402  (sys.path mutation above)
     Literal,
     Name,
     Operator,
+    Punctuation,
 )
 from pygments_ddot import DdotLexer  # noqa: E402
 
@@ -35,14 +36,18 @@ TOKEN_TO_CANONICAL = {
     Name.Class:                    "subject",
     Name.Function:                 "relation",
     Literal.String.Symbol:         "object",
-    Operator:                      "operator",
+    Operator:                      "doubledot",
     Keyword.Pseudo:                "command",
     Comment.Preproc:               "meta-delim",
-    Comment.Special.Operator:      "meta-operator",
+    Comment.Special.Operator:      "meta-doubledot",
     Comment.Special.Relation:      "meta-relation",
     Comment.Special.Object:        "meta-object",
     Comment.Multiline:             "meta-text",
-    Comment.Single:                "disabled",
+    Comment.Single:                "excluded",
+    Punctuation:                   "meta-separator",
+    Literal.String.Backtick:       "verbatim",
+    Name.Label:                    "block-end",
+    Name.Attribute:                "command-param",
 }
 
 

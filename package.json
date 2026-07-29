@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@calpano/ddot-shiki": "file:./shiki",
+    "@calpano/ddot-textmate-grammar": "file:./textmate",
     "highlight.js": "^11.11.1",
     "prismjs": "^1.30.0",
     "shiki": "^4.2.0",

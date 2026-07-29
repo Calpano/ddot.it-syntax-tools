@@ -108,6 +108,16 @@ module Rouge
           token Comment::Preproc, m[0]
           goto :meta_block
         end
+        # Parse Spec "block-continuation": after a block that filled the OBJECT,
+        # a line whose first token is CM2 CONTINUES the logical line as metadata.
+        # Without this it lexes as a fresh triple whose subject is ",," (or, in
+        # this lexer, as an unmatched ",," followed by subject "since").
+        # Keyed on shape — a state machine over physical lines cannot see that a
+        # block object preceded: ",," then whitespace then "..".
+        rule(%r/^[ \t]*(#{CM2})(?=[ \t]+#{DT2})/) do |m|
+          token Comment::Preproc, m[1]
+          push :inline_meta
+        end
         # Off-marker enters an excluded span.
         # Recognised ANYWHERE on the line (host-language comments), but the whole
         # line is consumed so only the command itself is coloured.
@@ -131,9 +141,18 @@ module Rouge
 
       # ─────────── verbatim (a !!block body) ───────────
       state :verbatim do
-        rule(%r/^[ \t]*(?=\n|\z)/) do |m|
+        # A blank line ends the unmarked form; in a marked block it is content.
+        # The newline MUST be consumed here: a zero-width match leaves the
+        # stream where it was, Rouge cannot advance, and it emits Error for the
+        # newline instead — visible as an error-styled blank line inside every
+        # `?end=` block. (The conformance harness drops whitespace-only chunks,
+        # so the corpus cannot catch this; it only shows in rendered output.)
+        rule(%r/^[ \t]*\n/) do |m|
           token Text, m[0]
-          # A blank line ends the unmarked form; in a marked block it is content.
+          goto :root if @block_end.nil?
+        end
+        rule(%r/^[ \t]*\z/) do |m|
+          token Text, m[0]
           goto :root if @block_end.nil?
         end
         rule(%r/^[^\n]+/) do |m|

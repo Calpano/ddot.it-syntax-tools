@@ -20,27 +20,48 @@ export const GRAMMAR_PATH = resolve(
   "textmate/ddot.tmLanguage.json",
 );
 
-// Highest-priority match wins.
-const SCOPE_TO_TOKEN = [
-  ["keyword.control.ddot",                "command"],
-  ["entity.name.operator.ddot",           "operator"],
-  ["entity.name.subject.ddot",            "subject"],
-  ["entity.name.relation.ddot",           "relation"],
-  ["entity.name.object.ddot",             "object"],
-  ["comment.metadata.operator.ddot",      "meta-operator"],
-  ["comment.metadata.subject.ddot",       "meta-subject"],
-  ["comment.metadata.relation.ddot",      "meta-relation"],
-  ["comment.metadata.object.ddot",        "meta-object"],
-  ["punctuation.definition.comment.ddot", "meta-delim"],
-  ["comment.block.disabled.ddot",         "disabled"],
-  ["comment.metadata.ddot",               "meta-text"],
+// Highest-priority match wins. The command scopes come first because the
+// grammar nests them INSIDE a field capture: a slot whose text is entirely a
+// command (`ddot.it/this` as a subject) must report `command`, not `subject`.
+// See ../../ddot.it/test-data/tokens.md, which is normative for these names.
+export const SCOPE_TO_TOKEN = [
+  ["keyword.control.command.ddot",         "command"],
+  ["variable.parameter.command.ddot",      "command-param"],
+  ["variable.parameter.block-end.ddot",    "block-end"],
+  ["entity.name.subject.ddot",             "subject"],
+  ["entity.name.relation.meta.ddot",       "meta-relation"],
+  ["entity.name.relation.ddot",            "relation"],
+  ["entity.name.object.meta.text.ddot",    "meta-text"],
+  ["entity.name.object.meta.ddot",         "meta-object"],
+  ["entity.name.object.ddot",              "object"],
+  ["keyword.operator.doubledot.meta.ddot", "meta-doubledot"],
+  ["keyword.operator.doubledot.ddot",      "doubledot"],
+  ["punctuation.section.meta.ddot",        "meta-delim"],
+  ["punctuation.separator.meta.ddot",      "meta-separator"],
+  ["comment.block.excluded.ddot",          "excluded"],
+  ["string.unquoted.block.ddot",           "verbatim"],
 ];
 
-function classifyScopes(scopes) {
+export function classifyScopes(scopes) {
   for (const [scope, token] of SCOPE_TO_TOKEN) {
     if (scopes.includes(scope)) return token;
   }
   return null;
+}
+
+// Distinguish "deliberately unstyled" from "styled with a scope we don't know".
+//
+// Text the grammar never claimed carries only the root scope; it is plain host
+// text and must NOT be tokenized at all -- see test-data/README.md ("lines that
+// produce no tokens are absent"), which is what lets a negative case assert an
+// empty token stream.
+//
+// A token that DOES carry a ddot-specific scope the map has no entry for is a
+// real defect: either the grammar grew a scope or the map went stale. Those are
+// emitted as `(unclassified)` with their scope stack, so they show up loudly
+// instead of silently vanishing.
+export function hasUnmappedDdotScope(scopes) {
+  return scopes.some((s) => s !== "source.ddot" && s.endsWith(".ddot"));
 }
 
 let grammarPromise = null;
@@ -104,6 +125,9 @@ export async function tokenize(src) {
       if (text.length === 0 || /^\s+$/.test(text)) continue;
       const token = classifyScopes(tok.scopes);
       if (token === null) {
+        // Plain host text the grammar never claimed -- emit nothing.
+        if (!hasUnmappedDdotScope(tok.scopes)) continue;
+        // A ddot scope with no mapping: surface it loudly.
         out.push({
           line: lineIdx,
           start: tok.startIndex,
