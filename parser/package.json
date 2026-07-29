@@ -1,0 +1,38 @@
+{
+  "name": "@calpano/ddot-parser",
+  "version": "0.1.0",
+  "description": "Canonical JavaScript parser for ddot.it (Knowledge Graph Notation): tokenizer, triple-event extraction and a `ddot-index` CLI.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "bin": {
+    "ddot-index": "./bin/ddot-index.js"
+  },
+  "files": [
+    "index.js",
+    "tokenizer.js",
+    "events.js",
+    "bin/",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "keywords": [
+    "ddot.it",
+    "parser",
+    "tokenizer",
+    "knowledge-graph",
+    "triples"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Calpano/ddot.it-syntax-tools.git",
+    "directory": "parser"
+  },
+  "homepage": "https://ddot.it",
+  "publishConfig": {
+    "access": "public"
+  }
+}

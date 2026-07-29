@@ -4,8 +4,8 @@ name: Publish npm packages
 #   - Push a tag matching `v*` (e.g. `v0.2.0`) → publish run.
 #   - Manual `workflow_dispatch` from the Actions tab → publish run.
 #
-# For each of the four npm packages (`textmate/`, `shiki/`, `highlightjs/`,
-# `prismjs/`), the workflow compares the local version in `package.json`
+# For each of the five npm packages (`textmate/`, `shiki/`, `highlightjs/`,
+# `prismjs/`, `parser/`), the workflow compares the local version in `package.json`
 # against the version on the npm registry and publishes only if newer.
 # This means a single tag can publish any subset of the packages — bump
 # what you want shipped, leave the others alone.
@@ -59,6 +59,9 @@ jobs:
       - name: Conformance — Prism.js
         run: npm run conformance:prismjs
 
+      - name: Conformance — Parser
+        run: npm run conformance:parser
+
       # Publish each package only if its local version is newer than the
       # registry's. Authentication is via OIDC trusted publishing —
       # each package on npm has Calpano/ddot.it-syntax-tools + this
@@ -70,7 +73,7 @@ jobs:
           set -e
           published=()
           skipped=()
-          for d in textmate shiki highlightjs prismjs; do
+          for d in textmate shiki highlightjs prismjs parser; do
             cd "$GITHUB_WORKSPACE/ddot.it-syntax-tools/$d"
             name=$(node -p "require('./package.json').name")
             local_v=$(node -p "require('./package.json').version")
