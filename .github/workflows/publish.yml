@@ -77,10 +77,27 @@ jobs:
             cd "$GITHUB_WORKSPACE/ddot.it-syntax-tools/$d"
             name=$(node -p "require('./package.json').name")
             local_v=$(node -p "require('./package.json').version")
+            # A `npm view` failure means EITHER the package does not exist yet
+            # OR the registry hiccuped, so 0.0.0 can be a false negative and we
+            # try to republish an existing version. npm rejects that with E403
+            # "cannot publish over the previously published versions", which is
+            # the very thing this comparison wanted -- treat it as a skip rather
+            # than failing the run. Any other publish error still fails.
             registry_v=$(npm view "$name" version 2>/dev/null || echo "0.0.0")
             if [ "$local_v" != "$registry_v" ]; then
               echo "::group::Publishing $name@$local_v (registry has $registry_v)"
-              npm publish --provenance
+              if ! log=$(npm publish --provenance 2>&1); then
+                echo "$log"
+                echo "::endgroup::"
+                case "$log" in
+                  *"cannot publish over the previously published versions"*)
+                    echo "$name@$local_v was already on the registry — skipping"
+                    skipped+=("$name@$local_v")
+                    continue ;;
+                  *) exit 1 ;;
+                esac
+              fi
+              echo "$log"
               published+=("$name@$local_v")
               echo "::endgroup::"
             else
