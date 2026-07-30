@@ -171,6 +171,10 @@ const KNOWN_ENGINE_DIVERGENCE = new Map([
   ["32-chained-blocks", REASON_BLANK_LINE],
   // Ditto: the !!block filling the meta object is blank-line terminated.
   ["33-meta-block-continuation", REASON_BLANK_LINE],
+  // Ditto for the fourth opener position: `,, !!block` fills the META TEXT and
+  // is blank-line terminated, so the following `Dirk ..works at.. SAP` line is
+  // swallowed as verbatim. Everything up to the blank line matches exactly.
+  ["34-block-meta-text", REASON_BLANK_LINE],
 ]);
 
 let failed = 0;

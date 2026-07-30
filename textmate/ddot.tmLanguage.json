@@ -21,6 +21,12 @@
       "include": "#block-metaobject"
     },
     {
+      "include": "#block-metatext-marked"
+    },
+    {
+      "include": "#block-metatext"
+    },
+    {
       "include": "#block-verbatim-marked"
     },
     {
@@ -75,8 +81,8 @@
         "index before compiling, so Oniguruma never sees the name and fails with",
         "'undefined name <'. Verified against vscode-oniguruma 2.x. The number is unavoidable."
       ],
-      "begin": "^[ \\t]*([^\\r\\n]*?)[ \\t]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[ \\t]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[ \\t]*([^\\r\\n]*?)[ \\t]*((?<!\\.)\\.{2}(?!\\.)))[ \\t]*((?:(?<!!)!!(?!!)|(?:https?://)?ddot\\.it/)block)(\\?end=)(\\S+)[ \\t]*$",
-      "end": "^[ \\t]*\\8[ \\t]*$",
+      "begin": "^[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[\\t\\p{Zs}]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*((?<!\\.)\\.{2}(?!\\.)))[\\t\\p{Zs}]*((?:(?<!!)!!(?!!)|(?:https?://)?ddot\\.it/)block)(\\?end=)([^\\t\\p{Zs}\\r\\n]+)[\\t\\p{Zs}]*$",
+      "end": "^[\\t\\p{Zs}]*\\8[\\t\\p{Zs}]*$",
       "beginCaptures": {
         "1": {
           "name": "entity.name.subject.ddot",
@@ -134,8 +140,8 @@
         "17-block is waived in tools/conformance-shiki.mjs, which carries the full analysis.",
         "Case 21 (?end=MARKER) is unaffected -- its terminator is a marker line, not a blank one."
       ],
-      "begin": "^[ \\t]*([^\\r\\n]*?)[ \\t]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[ \\t]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[ \\t]*([^\\r\\n]*?)[ \\t]*((?<!\\.)\\.{2}(?!\\.)))[ \\t]*((?:(?<!!)!!(?!!)|(?:https?://)?ddot\\.it/)block)[ \\t]*$",
-      "end": "^[ \\t]*$",
+      "begin": "^[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[\\t\\p{Zs}]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*((?<!\\.)\\.{2}(?!\\.)))[\\t\\p{Zs}]*((?:(?<!!)!!(?!!)|(?:https?://)?ddot\\.it/)block)[\\t\\p{Zs}]*$",
+      "end": "^[\\t\\p{Zs}]*$",
       "beginCaptures": {
         "1": {
           "name": "entity.name.subject.ddot",
@@ -170,8 +176,8 @@
     },
     "meta-block-after-triple": {
       "_comment": "A triple line ending in ',,' opens the block meta form (Parse Spec part 3).",
-      "begin": "^[ \\t]*([^\\r\\n]*?)[ \\t]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[ \\t]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[ \\t]*([^\\r\\n]*?)[ \\t]*((?<!\\.)\\.{2}(?!\\.)))[ \\t]*((?:(?!(?<!,),,(?!,))[^\\r\\n])*?)[ \\t]*((?<!,),,(?!,))[ \\t]*$",
-      "end": "^[ \\t]*((?<!,),,(?!,))[ \\t]*$",
+      "begin": "^[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[\\t\\p{Zs}]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*((?<!\\.)\\.{2}(?!\\.)))[\\t\\p{Zs}]*((?:(?!(?<!,),,(?!,))[^\\r\\n])*?)[\\t\\p{Zs}]*((?<!,),,(?!,))[\\t\\p{Zs}]*$",
+      "end": "^[\\t\\p{Zs}]*((?<!,),,(?!,))[\\t\\p{Zs}]*$",
       "beginCaptures": {
         "1": {
           "name": "entity.name.subject.ddot",
@@ -226,8 +232,8 @@
     },
     "meta-block-standalone": {
       "_comment": "Golden corpus case 09: a ',,' block may also open on its own line, after a complete triple line.",
-      "begin": "^[ \\t]*((?<!,),,(?!,))[ \\t]*$",
-      "end": "^[ \\t]*((?<!,),,(?!,))[ \\t]*$",
+      "begin": "^[\\t\\p{Zs}]*((?<!,),,(?!,))[\\t\\p{Zs}]*$",
+      "end": "^[\\t\\p{Zs}]*((?<!,),,(?!,))[\\t\\p{Zs}]*$",
       "beginCaptures": {
         "1": {
           "name": "punctuation.section.meta.ddot"
@@ -249,7 +255,7 @@
     },
     "meta-block-triple-line": {
       "_comment": "'..mr.. mo' inside a ',,' block. MetaObjectInBlock := TextExcept{NL}, so it runs to end of line.",
-      "match": "^[ \\t]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[ \\t]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[ \\t]*([^\\r\\n]*?)[ \\t]*((?<!\\.)\\.{2}(?!\\.)))[ \\t]*([^\\r\\n]*?)[ \\t]*$",
+      "match": "^[\\t\\p{Zs}]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[\\t\\p{Zs}]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*((?<!\\.)\\.{2}(?!\\.)))[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*$",
       "captures": {
         "1": {
           "name": "keyword.operator.doubledot.meta.ddot"
@@ -280,7 +286,7 @@
     },
     "meta-block-text-line": {
       "_comment": "Fallback inside a ',,' block: free-form text, carrying the built-in relation 'text'.",
-      "match": "^[ \\t]*([^\\r\\n]*[^ \\t\\r\\n])[ \\t]*$",
+      "match": "^[\\t\\p{Zs}]*([^\\r\\n]*[^\\t\\p{Zs}\\r\\n])[\\t\\p{Zs}]*$",
       "captures": {
         "1": {
           "name": "entity.name.object.meta.text.ddot",
@@ -300,7 +306,7 @@
         "Object is lazy with an optional trailing meta group, so it stops at a CM2 but",
         "otherwise runs to end of line (corpus case 20: an object may contain '..')."
       ],
-      "match": "^[ \\t]*([^\\r\\n]*?)[ \\t]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[ \\t]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[ \\t]*([^\\r\\n]*?)[ \\t]*((?<!\\.)\\.{2}(?!\\.)))[ \\t]*([^\\r\\n]*?)(?:[ \\t]*((?<!,),,(?!,))([^\\r\\n]*))?[ \\t]*$",
+      "match": "^[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[\\t\\p{Zs}]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*((?<!\\.)\\.{2}(?!\\.)))[\\t\\p{Zs}]*([^\\r\\n]*?)(?:[\\t\\p{Zs}]*((?<!,),,(?!,))([^\\r\\n]*))?[\\t\\p{Zs}]*$",
       "captures": {
         "1": {
           "name": "entity.name.subject.ddot",
@@ -355,7 +361,7 @@
     },
     "meta-inline-triple": {
       "_comment": "'..mr.. mo' inline after ',,'. MetaObjectInline := TextExcept{NL,SC2}, so it stops at ';;'.",
-      "match": "[ \\t]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[ \\t]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[ \\t]*((?:(?!(?<!;);;(?!;))[^\\r\\n])*?)[ \\t]*((?<!\\.)\\.{2}(?!\\.)))[ \\t]*((?:(?!(?<!;);;(?!;))[^\\r\\n])*?)[ \\t]*(?=(?<!;);;(?!;)|$)",
+      "match": "[\\t\\p{Zs}]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[\\t\\p{Zs}]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[\\t\\p{Zs}]*((?:(?!(?<!;);;(?!;))[^\\r\\n])*?)[\\t\\p{Zs}]*((?<!\\.)\\.{2}(?!\\.)))[\\t\\p{Zs}]*((?:(?!(?<!;);;(?!;))[^\\r\\n])*?)[\\t\\p{Zs}]*(?=(?<!;);;(?!;)|$)",
       "captures": {
         "1": {
           "name": "keyword.operator.doubledot.meta.ddot"
@@ -396,7 +402,7 @@
         "after the ',,' is OUTSIDE MetaInline, and MetaTextInline may only begin with",
         "CM2/SC2/EM2/TX, never whitespace. Symmetric with #meta-block-text-line."
       ],
-      "match": "[ \\t]*([^\\r\\n]*[^ \\t\\r\\n])[ \\t]*",
+      "match": "[\\t\\p{Zs}]*([^\\r\\n]*[^\\t\\p{Zs}\\r\\n])[\\t\\p{Zs}]*",
       "captures": {
         "1": {
           "name": "entity.name.object.meta.text.ddot",
@@ -423,8 +429,8 @@
     },
     "block-metaobject-marked": {
       "_comment": "block-as-field: !!block?end=MARKER filling the META OBJECT. `end` back-references group 14.",
-      "begin": "^[ \\t]*([^\\r\\n]*?)[ \\t]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[ \\t]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[ \\t]*([^\\r\\n]*?)[ \\t]*((?<!\\.)\\.{2}(?!\\.)))[ \\t]*((?:(?!(?<!,),,(?!,))[^\\r\\n])*?)[ \\t]*((?<!,),,(?!,))[ \\t]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[ \\t]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[ \\t]*([^\\r\\n]*?)[ \\t]*((?<!\\.)\\.{2}(?!\\.)))[ \\t]*((?:(?<!!)!!(?!!)|(?:https?://)?ddot\\.it/)block)(\\?end=)(\\S+)[ \\t]*$",
-      "end": "^[ \\t]*\\14[ \\t]*$",
+      "begin": "^[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[\\t\\p{Zs}]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*((?<!\\.)\\.{2}(?!\\.)))[\\t\\p{Zs}]*((?:(?!(?<!,),,(?!,))[^\\r\\n])*?)[\\t\\p{Zs}]*((?<!,),,(?!,))[\\t\\p{Zs}]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[\\t\\p{Zs}]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*((?<!\\.)\\.{2}(?!\\.)))[\\t\\p{Zs}]*((?:(?<!!)!!(?!!)|(?:https?://)?ddot\\.it/)block)(\\?end=)([^\\t\\p{Zs}\\r\\n]+)[\\t\\p{Zs}]*$",
+      "end": "^[\\t\\p{Zs}]*\\14[\\t\\p{Zs}]*$",
       "beginCaptures": {
         "1": {
           "name": "entity.name.subject.ddot",
@@ -498,8 +504,8 @@
     },
     "block-metaobject": {
       "_comment": "block-as-field: !!block filling the META OBJECT. First blank line terminates.",
-      "begin": "^[ \\t]*([^\\r\\n]*?)[ \\t]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[ \\t]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[ \\t]*([^\\r\\n]*?)[ \\t]*((?<!\\.)\\.{2}(?!\\.)))[ \\t]*((?:(?!(?<!,),,(?!,))[^\\r\\n])*?)[ \\t]*((?<!,),,(?!,))[ \\t]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[ \\t]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[ \\t]*([^\\r\\n]*?)[ \\t]*((?<!\\.)\\.{2}(?!\\.)))[ \\t]*((?:(?<!!)!!(?!!)|(?:https?://)?ddot\\.it/)block)[ \\t]*$",
-      "end": "^[ \\t]*$",
+      "begin": "^[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[\\t\\p{Zs}]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*((?<!\\.)\\.{2}(?!\\.)))[\\t\\p{Zs}]*((?:(?!(?<!,),,(?!,))[^\\r\\n])*?)[\\t\\p{Zs}]*((?<!,),,(?!,))[\\t\\p{Zs}]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[\\t\\p{Zs}]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*((?<!\\.)\\.{2}(?!\\.)))[\\t\\p{Zs}]*((?:(?<!!)!!(?!!)|(?:https?://)?ddot\\.it/)block)[\\t\\p{Zs}]*$",
+      "end": "^[\\t\\p{Zs}]*$",
       "beginCaptures": {
         "1": {
           "name": "entity.name.subject.ddot",
@@ -560,10 +566,115 @@
       },
       "contentName": "string.unquoted.block.ddot"
     },
+    "block-metatext-marked": {
+      "_comment": "block-as-field: !!block?end=MARKER filling the META TEXT. Blank lines do NOT terminate; the marker line does.",
+      "begin": "^[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[\\t\\p{Zs}]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*((?<!\\.)\\.{2}(?!\\.)))[\\t\\p{Zs}]*((?:(?!(?<!,),,(?!,))[^\\r\\n])*?)[\\t\\p{Zs}]*((?<!,),,(?!,))[\\t\\p{Zs}]*((?:(?<!!)!!(?!!)|(?:https?://)?ddot\\.it/)block)(\\?end=)([^\\t\\p{Zs}\\r\\n]+)[\\t\\p{Zs}]*$",
+      "end": "^[\\t\\p{Zs}]*\\10[\\t\\p{Zs}]*$",
+      "beginCaptures": {
+        "1": {
+          "name": "entity.name.subject.ddot",
+          "patterns": [
+            {
+              "include": "#command"
+            }
+          ]
+        },
+        "2": {
+          "name": "keyword.operator.doubledot.ddot"
+        },
+        "3": {
+          "name": "keyword.operator.doubledot.ddot"
+        },
+        "4": {
+          "name": "entity.name.relation.ddot",
+          "patterns": [
+            {
+              "include": "#command"
+            }
+          ]
+        },
+        "5": {
+          "name": "keyword.operator.doubledot.ddot"
+        },
+        "6": {
+          "name": "entity.name.object.ddot",
+          "patterns": [
+            {
+              "include": "#command"
+            }
+          ]
+        },
+        "7": {
+          "name": "punctuation.section.meta.ddot"
+        },
+        "8": {
+          "name": "keyword.control.command.ddot"
+        },
+        "9": {
+          "name": "variable.parameter.command.ddot"
+        },
+        "10": {
+          "name": "variable.parameter.block-end.ddot"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "variable.parameter.block-end.ddot"
+        }
+      },
+      "contentName": "string.unquoted.block.ddot"
+    },
+    "block-metatext": {
+      "_comment": "block-as-field: !!block filling the META TEXT (',, !!block'). Redundant with the ',,' … ',,' block form but permitted. First blank line terminates.",
+      "begin": "^[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[\\t\\p{Zs}]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*((?<!\\.)\\.{2}(?!\\.)))[\\t\\p{Zs}]*((?:(?!(?<!,),,(?!,))[^\\r\\n])*?)[\\t\\p{Zs}]*((?<!,),,(?!,))[\\t\\p{Zs}]*((?:(?<!!)!!(?!!)|(?:https?://)?ddot\\.it/)block)[\\t\\p{Zs}]*$",
+      "end": "^[\\t\\p{Zs}]*$",
+      "beginCaptures": {
+        "1": {
+          "name": "entity.name.subject.ddot",
+          "patterns": [
+            {
+              "include": "#command"
+            }
+          ]
+        },
+        "2": {
+          "name": "keyword.operator.doubledot.ddot"
+        },
+        "3": {
+          "name": "keyword.operator.doubledot.ddot"
+        },
+        "4": {
+          "name": "entity.name.relation.ddot",
+          "patterns": [
+            {
+              "include": "#command"
+            }
+          ]
+        },
+        "5": {
+          "name": "keyword.operator.doubledot.ddot"
+        },
+        "6": {
+          "name": "entity.name.object.ddot",
+          "patterns": [
+            {
+              "include": "#command"
+            }
+          ]
+        },
+        "7": {
+          "name": "punctuation.section.meta.ddot"
+        },
+        "8": {
+          "name": "keyword.control.command.ddot"
+        }
+      },
+      "contentName": "string.unquoted.block.ddot"
+    },
     "block-subject-marked": {
       "_comment": "block-as-field: !!block?end=MARKER alone on a line = SUBJECT opener. `end` back-references group 3.",
-      "begin": "^[ \\t]*((?:(?<!!)!!(?!!)|(?:https?://)?ddot\\.it/)block)(\\?end=)(\\S+)[ \\t]*$",
-      "end": "^[ \\t]*\\3[ \\t]*$",
+      "begin": "^[\\t\\p{Zs}]*((?:(?<!!)!!(?!!)|(?:https?://)?ddot\\.it/)block)(\\?end=)([^\\t\\p{Zs}\\r\\n]+)[\\t\\p{Zs}]*$",
+      "end": "^[\\t\\p{Zs}]*\\3[\\t\\p{Zs}]*$",
       "beginCaptures": {
         "1": {
           "name": "keyword.control.command.ddot"
@@ -584,8 +695,8 @@
     },
     "block-subject": {
       "_comment": "block-as-field: !!block alone on a line = SUBJECT opener. First blank line terminates.",
-      "begin": "^[ \\t]*((?:(?<!!)!!(?!!)|(?:https?://)?ddot\\.it/)block)[ \\t]*$",
-      "end": "^[ \\t]*$",
+      "begin": "^[\\t\\p{Zs}]*((?:(?<!!)!!(?!!)|(?:https?://)?ddot\\.it/)block)[\\t\\p{Zs}]*$",
+      "end": "^[\\t\\p{Zs}]*$",
       "beginCaptures": {
         "1": {
           "name": "keyword.control.command.ddot"
@@ -595,7 +706,7 @@
     },
     "meta-continuation-line": {
       "_comment": "Parse Spec 'block-continuation': after a block, the next line CONTINUES the logical line when its first token is one the interrupted position accepts — CM2 after a block OBJECT (',, ..since.. 2016'), SC2 after a block META OBJECT (';; ..until.. 2020'). Neither is a fresh triple whose subject is ',,' / ';;'. Corpus cases 32-chained-blocks and 33-meta-block-continuation. TextMate cannot verify which slot the preceding block filled (that needs parser state), so the rule keys on the shape: the delimiter, whitespace, then a '..' pair. A lone ',,' is #meta-block-standalone, and a subject merely starting with the character (',,weird ..r.. o') does not match.",
-      "begin": "^[ \\t]*(?:((?<!,),,(?!,))|((?<!;);;(?!;)))(?=[ \\t]+(?<!\\.)\\.{2}(?!\\.))",
+      "begin": "^[\\t\\p{Zs}]*(?:((?<!,),,(?!,))|((?<!;);;(?!;)))(?=[\\t\\p{Zs}]+(?<!\\.)\\.{2}(?!\\.))",
       "beginCaptures": {
         "1": {
           "name": "punctuation.section.meta.ddot"

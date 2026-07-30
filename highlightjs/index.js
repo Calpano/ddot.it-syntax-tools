@@ -22,36 +22,36 @@ export default function ddotHighlightJs(/* hljs */) {
   // Runs of EXACTLY n, neither preceded nor followed by the same character.
   // `\.{2}` alone would match the first two dots of `...`.
   const DT2 = /(?<!\.)\.{2}(?!\.)/;
-  const QUAD = /(?<!\.)(?:\.{4}|\.{2}[ \t]+\.{2})(?!\.)/;
+  const QUAD = /(?<!\.)(?:\.{4}|\.{2}[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+\.{2})(?!\.)/;
   const CM2 = /(?<!,),,(?!,)/;
   const SC2 = /(?<!;);;(?!;)/;
 
   // A command needs the slash and a non-empty name; bare `ddot.it` is not one.
-  const CMD = /(?:(?:https?:\/\/)?ddot\.it\/|!!)[^\s?#]+(?:\?[^\s#]*)?(?:#\S*)?/;
+  const CMD = /(?:(?:https?:\/\/)?ddot\.it\/|!!)[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v?#]+(?:\?[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v#]*)?(?:#[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v]*)?/;
   const BLOCK = /(?:(?:https?:\/\/)?ddot\.it\/|!!)block/;
 
-  const NAME_SUBJ = /[^\s.,][^\n,]*?/;
-  const NAME_REL = /[^\s.,][^\n.,]*?/;
-  const NAME_OBJ = /[^\s,][^\n,]*?/;
+  const NAME_SUBJ = /[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v.,][^\n,]*?/;
+  const NAME_REL = /[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v.,][^\n.,]*?/;
+  const NAME_OBJ = /[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v,][^\n,]*?/;
 
-  const LEAD = /^[ \t]*/;
-  const WS = /[ \t]*/;
+  const LEAD = /^[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*/;
+  const WS = /[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*/;
   // A triple head ends at `,,` or end of line — NOT consuming either, so the
   // meta mode can start.
-  const HEAD_END = /(?=[ \t]*(?:(?<!,),,(?!,)|$))/;
+  const HEAD_END = /(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(?:(?<!,),,(?!,)|$))/;
 
   // ── Meta: one `..rel.. obj` pair, or the untyped `.... obj` form ──
   const META_PAIR = {
-    match: [WS, DT2, WS, NAME_REL, WS, DT2, WS, /[^\s;][^\n;]*?/, /(?=[ \t]*(?:(?<!;);;(?!;)|$))/],
+    match: [WS, DT2, WS, NAME_REL, WS, DT2, WS, /[^\s;][^\n;]*?/, /(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(?:(?<!;);;(?!;)|$))/],
     scope: { 2: 'meta-doubledot', 4: 'meta-relation', 6: 'meta-doubledot', 8: 'meta-object' },
   };
   const META_PAIR_UNTYPED = {
-    match: [WS, QUAD, WS, /[^\s;][^\n;]*?/, /(?=[ \t]*(?:(?<!;);;(?!;)|$))/],
+    match: [WS, QUAD, WS, /[^\s;][^\n;]*?/, /(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(?:(?<!;);;(?!;)|$))/],
     scope: { 2: 'meta-doubledot', 4: 'meta-object' },
   };
   const META_SEPARATOR = { match: SC2, scope: 'meta-separator' };
   // Fallback: free-form inline meta text, trimmed of surrounding whitespace.
-  const META_TEXT = { match: /[^\s][^\n]*?(?=[ \t]*$)/, scope: 'meta-text' };
+  const META_TEXT = { match: /[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v][^\n]*?(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$)/, scope: 'meta-text' };
 
   // The inline meta part: `,,` then any number of pairs, or free text.
   const INLINE_META = {
@@ -66,7 +66,7 @@ export default function ddotHighlightJs(/* hljs */) {
   // as INLINE_META, but opened by the separator rather than by `,,`. Without it
   // the line reads as a fresh triple whose subject is `;;`.
   const META_CONTINUATION = {
-    begin: [/^[ \t]*/, SC2, /(?=[ \t]+)/],
+    begin: [/^[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*/, SC2, /(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+)/],
     beginScope: { 2: 'meta-separator' },
     end: /$/,
     contains: [META_PAIR, META_PAIR_UNTYPED, META_SEPARATOR, META_TEXT],
@@ -76,7 +76,7 @@ export default function ddotHighlightJs(/* hljs */) {
   // The `?end=MARKER` form needs the terminator to equal text captured
   // earlier, which hljs cannot express; see the waiver in the conformance
   // harness. Only the blank-line form is implemented.
-  const VERBATIM_BODY = { match: /^[ \t]*\S[^\n]*$/m, scope: 'verbatim' };
+  const VERBATIM_BODY = { match: /^[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v][^\n]*$/m, scope: 'verbatim' };
 
   // The `?end=MARKER` form: the terminator is a line equal to text captured in
   // `begin`, which no static `end` regex can express. hljs can do it with
@@ -99,13 +99,13 @@ export default function ddotHighlightJs(/* hljs */) {
   const markedBlockFrom = (beginPatterns, beginScope) => ({
     begin: beginPatterns,
     beginScope,
-    end: /^[ \t]*$/m,
+    end: /^[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/m,
     contains: [VERBATIM_BODY],
   });
   const blockFrom = (beginPatterns, beginScope) => ({
     begin: beginPatterns,
     beginScope,
-    end: /^[ \t]*$/m,
+    end: /^[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/m,
     contains: [VERBATIM_BODY],
   });
 
@@ -132,92 +132,105 @@ export default function ddotHighlightJs(/* hljs */) {
 
   // Block openers, per field position (block-as-field: Subject, Object,
   // MetaObject). The opener must END its physical line.
-  const BLOCK_SUBJECT = blockFrom([LEAD, BLOCK, /[ \t]*$/], { 2: 'command' });
+  const BLOCK_SUBJECT = blockFrom([LEAD, BLOCK, /[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/], { 2: 'command' });
   const BLOCK_SUBJECT_MARKED = markedBlockFrom(
-    [LEAD, BLOCK, /\?end=/, /\S+/, /[ \t]*$/],
+    [LEAD, BLOCK, /\?end=/, /[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v]+/, /[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/],
     { 2: 'command', 3: 'command-param', 4: 'block-end' },
   );
   const blockObjectMarked = (subjPat, subjScope, relPat, relScope) =>
     markedBlockFrom(
-      [LEAD, subjPat, WS, DT2, WS, relPat, WS, DT2, WS, BLOCK, /\?end=/, /\S+/, /[ \t]*$/],
+      [LEAD, subjPat, WS, DT2, WS, relPat, WS, DT2, WS, BLOCK, /\?end=/, /[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v]+/, /[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/],
       { 2: subjScope, 4: 'doubledot', 6: relScope, 8: 'doubledot',
         10: 'command', 11: 'command-param', 12: 'block-end' },
     );
   const blockObject = (subjPat, subjScope, relPat, relScope) =>
     blockFrom(
-      [LEAD, subjPat, WS, DT2, WS, relPat, WS, DT2, WS, BLOCK, /[ \t]*$/],
+      [LEAD, subjPat, WS, DT2, WS, relPat, WS, DT2, WS, BLOCK, /[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/],
       { 2: subjScope, 4: 'doubledot', 6: relScope, 8: 'doubledot', 10: 'command' },
     );
   // A CONTINUATION line may itself end in a block opener (`..knows.. !!block`),
   // so one logical line can carry a block subject AND a block object — corpus
   // case 32-chained-blocks. Same shape as blockObject with the subject omitted.
   const BLOCK_OBJECT_CONT = blockFrom(
-    [LEAD, DT2, WS, NAME_REL, WS, DT2, WS, BLOCK, /[ \t]*$/],
+    [LEAD, DT2, WS, NAME_REL, WS, DT2, WS, BLOCK, /[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/],
     { 2: 'doubledot', 4: 'relation', 6: 'doubledot', 8: 'command' },
   );
   const BLOCK_OBJECT_CONT_MARKED = markedBlockFrom(
-    [LEAD, DT2, WS, NAME_REL, WS, DT2, WS, BLOCK, /\?end=/, /\S+/, /[ \t]*$/],
+    [LEAD, DT2, WS, NAME_REL, WS, DT2, WS, BLOCK, /\?end=/, /[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v]+/, /[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/],
     { 2: 'doubledot', 4: 'relation', 6: 'doubledot',
       8: 'command', 9: 'command-param', 10: 'block-end' },
   );
   const blockMetaObject = (subjPat, subjScope) =>
     blockFrom(
-      [LEAD, subjPat, WS, DT2, WS, NAME_REL, WS, DT2, WS, NAME_OBJ, WS, CM2, WS, DT2, WS, NAME_REL, WS, DT2, WS, BLOCK, /[ \t]*$/],
+      [LEAD, subjPat, WS, DT2, WS, NAME_REL, WS, DT2, WS, NAME_OBJ, WS, CM2, WS, DT2, WS, NAME_REL, WS, DT2, WS, BLOCK, /[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/],
       {
         2: subjScope, 4: 'doubledot', 6: 'relation', 8: 'doubledot', 10: 'object',
         12: 'meta-delim', 14: 'meta-doubledot', 16: 'meta-relation', 18: 'meta-doubledot', 20: 'command',
       },
     );
+  // block-as-field's 4th position: `,, !!block` fills the free META TEXT.
+  // Redundant with the `,,` … `,,` block form but permitted, so it needs its own
+  // opener — otherwise INLINE_META scopes the opener as meta-text and the body
+  // is never entered. Must be registered BEFORE blockMetaObject's siblings only
+  // in the sense that it is a distinct shape; the two cannot both match a line.
+  const blockMetaText = (subjPat, subjScope) =>
+    blockFrom(
+      [LEAD, subjPat, WS, DT2, WS, NAME_REL, WS, DT2, WS, NAME_OBJ, WS, CM2, WS, BLOCK, /[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/],
+      {
+        2: subjScope, 4: 'doubledot', 6: 'relation', 8: 'doubledot', 10: 'object',
+        12: 'meta-delim', 14: 'command',
+      },
+    );
 
   // ── `,,` block (meta on its own lines) ──────────────────────────
   const META_BLOCK_PAIR = {
-    match: [LEAD, DT2, WS, NAME_REL, WS, DT2, WS, /[^\s][^\n]*?/, /[ \t]*$/],
+    match: [LEAD, DT2, WS, NAME_REL, WS, DT2, WS, /[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v][^\n]*?/, /[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/],
     scope: { 2: 'meta-doubledot', 4: 'meta-relation', 6: 'meta-doubledot', 8: 'meta-object' },
   };
   const META_BLOCK_PAIR_UNTYPED = {
-    match: [LEAD, QUAD, WS, /[^\s][^\n]*?/, /[ \t]*$/],
+    match: [LEAD, QUAD, WS, /[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v][^\n]*?/, /[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/],
     scope: { 2: 'meta-doubledot', 4: 'meta-object' },
   };
   // A block line that is not a pair is free-form meta text.
   const META_BLOCK_TEXT = {
-    match: /^[ \t]*[^\s,][^\n]*?[ \t]*$/m,
+    match: /^[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v,][^\n]*?[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/m,
     scope: 'meta-text',
   };
   const metaBlockFrom = (beginPatterns, beginScope) => ({
     begin: beginPatterns,
     beginScope,
-    end: [LEAD, CM2, /[ \t]*$/],
+    end: [LEAD, CM2, /[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/],
     endScope: { 2: 'meta-delim' },
     contains: [META_BLOCK_PAIR, META_BLOCK_PAIR_UNTYPED, META_BLOCK_TEXT],
   });
 
   const typedBlockMeta = (subjPat, subjScope) =>
     metaBlockFrom(
-      [LEAD, subjPat, WS, DT2, WS, NAME_REL, WS, DT2, WS, NAME_OBJ, WS, CM2, /[ \t]*$/],
+      [LEAD, subjPat, WS, DT2, WS, NAME_REL, WS, DT2, WS, NAME_OBJ, WS, CM2, /[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/],
       { 2: subjScope, 4: 'doubledot', 6: 'relation', 8: 'doubledot', 10: 'object', 12: 'meta-delim' },
     );
   const untypedBlockMeta = (subjPat, subjScope) =>
     metaBlockFrom(
-      [LEAD, subjPat, WS, QUAD, WS, NAME_OBJ, WS, CM2, /[ \t]*$/],
+      [LEAD, subjPat, WS, QUAD, WS, NAME_OBJ, WS, CM2, /[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/],
       { 2: subjScope, 4: 'doubledot', 6: 'object', 8: 'meta-delim' },
     );
   const TYPED_CONT_BLOCK_META = metaBlockFrom(
-    [LEAD, DT2, WS, NAME_REL, WS, DT2, WS, NAME_OBJ, WS, CM2, /[ \t]*$/],
+    [LEAD, DT2, WS, NAME_REL, WS, DT2, WS, NAME_OBJ, WS, CM2, /[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/],
     { 2: 'doubledot', 4: 'relation', 6: 'doubledot', 8: 'object', 10: 'meta-delim' },
   );
   // Standalone `,,` — opens a block after an already-complete triple line.
-  const STANDALONE_BLOCK_META = metaBlockFrom([LEAD, CM2, /[ \t]*$/], { 2: 'meta-delim' });
+  const STANDALONE_BLOCK_META = metaBlockFrom([LEAD, CM2, /[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$/], { 2: 'meta-delim' });
 
   // ── off / on excluded span ──────────────────────────────────────
   // The inner matcher must NOT match on-marker lines, or it consumes them
   // before `end` fires.
   const DISABLED = {
-    begin: [/^[^\n]*?/, /(?:ddot\.it\/off|!!off)(?![^\s?#])/, /[^\n]*$/],
+    begin: [/^[^\n]*?/, /(?:ddot\.it\/off|!!off)(?![^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v?#])/, /[^\n]*$/],
     beginScope: { 2: 'command' },
-    end: [/^[^\n]*?/, /(?:ddot\.it\/on|!!on)(?![^\s?#])/, /[^\n]*$/],
+    end: [/^[^\n]*?/, /(?:ddot\.it\/on|!!on)(?![^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v?#])/, /[^\n]*$/],
     endScope: { 2: 'command' },
     contains: [
-      { match: /^(?![^\n]*(?:ddot\.it\/on|!!on)(?![^\s?#]))[^\n]+$/m, scope: 'excluded' },
+      { match: /^(?![^\n]*(?:ddot\.it\/on|!!on)(?![^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v?#]))[^\n]+$/m, scope: 'excluded' },
     ],
   };
 
@@ -237,6 +250,8 @@ export default function ddotHighlightJs(/* hljs */) {
       blockObjectMarked(NAME_SUBJ, 'subject', NAME_REL, 'relation'),
       blockMetaObject(CMD, 'command'),
       blockMetaObject(NAME_SUBJ, 'subject'),
+      blockMetaText(CMD, 'command'),
+      blockMetaText(NAME_SUBJ, 'subject'),
       blockObject(CMD, 'command', CMD, 'command'),
       blockObject(CMD, 'command', NAME_REL, 'relation'),
       blockObject(NAME_SUBJ, 'subject', CMD, 'command'),

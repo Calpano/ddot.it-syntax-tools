@@ -41,22 +41,30 @@ module Rouge
       filenames '*.ddot'
       mimetypes 'text/x-ddot'
 
+      # WS := TAB + every Unicode space separator (category Zs) — see the Parse
+      # Spec, "what counts as WS". NBSP (U+00A0) and NARROW NO-BREAK SPACE
+      # (U+202F) are visually identical to a space, so treating them as slot
+      # text would silently build a different node. WSX adds the characters
+      # Ruby's \s also covers, for use in negated classes.
+      WS_C  = '\t\p{Zs}'.freeze
+      WSX_C = '\t\p{Zs}\r\n\f\v'.freeze
+
       # --- lexical tokens (see the Parse Spec's "Token Sequences") ----------
       # Each is a run of EXACTLY n, neither preceded nor followed by the same
       # character — the lookarounds are what express that. `\.{2}` alone would
       # happily match the first two dots of `...`.
       DT2  = /(?<!\.)\.{2}(?!\.)/.freeze
       DT4  = /(?<!\.)\.{4}(?!\.)/.freeze
-      QUAD = /(?<!\.)(?:\.{4}|\.{2}[ \t]+\.{2})(?!\.)/.freeze
+      QUAD = /(?<!\.)(?:\.{4}|\.{2}[#{WS_C}]+\.{2})(?!\.)/.freeze
       CM2  = /(?<!,),,(?!,)/.freeze
       SC2  = /(?<!;);;(?!;)/.freeze
 
       OFF_RE   = %r{(?:ddot\.it/off|!!off)}.freeze
       ON_RE    = %r{(?:ddot\.it/on|!!on)}.freeze
       # Pins the command NAME: `!!office` must not read as `!!off`.
-      BOUND_SRC = /(?![^\s?#])/.freeze
+      BOUND_SRC = /(?![^#{WSX_C}?#])/.freeze
       # A command needs the slash and a non-empty name; bare `ddot.it` is not one.
-      CMD_RE   = %r{(?:(?:https?://)?ddot\.it/|!!)[^\s?#]+(?:\?[^\s#]*)?(?:\#\S*)?}.freeze
+      CMD_RE   = %r{(?:(?:https?://)?ddot\.it/|!!)[^#{WSX_C}?#]+(?:\?[^#{WSX_C}#]*)?(?:\#[^#{WSX_C}]*)?}.freeze
       BLOCK_RE = %r{(?:(?:https?://)?ddot\.it/|!!)block}.freeze
 
       # The line-shape gate: a line is ddot.it only if it carries a complete
@@ -65,7 +73,7 @@ module Rouge
       GATE = /(?=[^\n]*(?:#{DT4}|#{DT2}[^\n]*#{DT2}))/.freeze
 
       # `!!block` filling a whole field: it must END its physical line.
-      BLOCK_OPENER = /#{BLOCK_RE}(?:(\?end=)(\S+))?[ \t]*(?=\n|\z)/.freeze
+      BLOCK_OPENER = /#{BLOCK_RE}(?:(\?end=)([^#{WSX_C}]+))?[#{WS_C}]*(?=\n|\z)/.freeze
 
       def reset!
         super
@@ -84,7 +92,7 @@ module Rouge
       # marker, and switch to verbatim.
       def open_block(match)
         raw  = match[0]
-        lead = raw[/\A[ \t]*/]
+        lead = raw[/\A[#{WS_C}]*/]
         body = raw[lead.length..].rstrip
         tail = raw[(lead.length + body.length)..]
         token Text, lead unless lead.empty?
@@ -104,7 +112,7 @@ module Rouge
       # ─────────── line-dispatch root ───────────
       state :root do
         # Standalone ,, opens a free-form meta block.
-        rule(%r/^[ \t]*#{CM2}[ \t]*(?=\n|\z)/) do |m|
+        rule(%r/^[#{WS_C}]*#{CM2}[#{WS_C}]*(?=\n|\z)/) do |m|
           token Comment::Preproc, m[0]
           goto :meta_block
         end
@@ -115,12 +123,12 @@ module Rouge
         # this lexer, as an unmatched ",," followed by subject "since").
         # Keyed on shape — a state machine over physical lines cannot see that a
         # block object preceded: ",," then whitespace then "..".
-        rule(%r/^[ \t]*(#{CM2})(?=[ \t]+#{DT2})/) do |m|
+        rule(%r/^[#{WS_C}]*(#{CM2})(?=[#{WS_C}]+#{DT2})/) do |m|
           token Comment::Preproc, m[1]
           push :inline_meta
         end
         # ... and SC2 after a block META OBJECT (`;; ..until.. 2020`).
-        rule(%r/^[ \t]*(#{SC2})(?=[ \t]+#{DT2})/) do |m|
+        rule(%r/^[#{WS_C}]*(#{SC2})(?=[#{WS_C}]+#{DT2})/) do |m|
           token Punctuation, m[1]
           push :inline_meta
         end
@@ -134,11 +142,11 @@ module Rouge
           goto :disabled
         end
         # `!!block` alone on a line = a SUBJECT opener (block-as-field).
-        rule(%r/^[ \t]*#{BLOCK_OPENER}/) { |m| open_block(m) }
+        rule(%r/^[#{WS_C}]*#{BLOCK_OPENER}/) { |m| open_block(m) }
         # Empty / whitespace-only line.
-        rule %r/^[ \t]*\n/, Text
+        rule %r/^[#{WS_C}]*\n/, Text
         # Gate: only lines with a full operator skeleton parse as triples.
-        rule(/^#{GATE}(?=[ \t]*(?:#{DT2}|#{QUAD}))/) { goto :after_subject }
+        rule(/^#{GATE}(?=[#{WS_C}]*(?:#{DT2}|#{QUAD}))/) { goto :after_subject }
         rule(/^#{GATE}/) { goto :subject }
         # Anything else is not a triple: consume the line, emit no token.
         rule %r/[^\n]+/, Text
@@ -153,11 +161,11 @@ module Rouge
         # newline instead — visible as an error-styled blank line inside every
         # `?end=` block. (The conformance harness drops whitespace-only chunks,
         # so the corpus cannot catch this; it only shows in rendered output.)
-        rule(%r/^[ \t]*\n/) do |m|
+        rule(%r/^[#{WS_C}]*\n/) do |m|
           token Text, m[0]
           goto :root if @block_end.nil?
         end
-        rule(%r/^[ \t]*\z/) do |m|
+        rule(%r/^[#{WS_C}]*\z/) do |m|
           token Text, m[0]
           goto :root if @block_end.nil?
         end
@@ -181,27 +189,27 @@ module Rouge
           token Text, m[3]
           goto :root
         end
-        rule %r/^[ \t]*\n/, Text
+        rule %r/^[#{WS_C}]*\n/, Text
         rule %r/[^\n]+/, Comment::Single
         rule %r/\n/, Text
       end
 
       # ─────────── multi-line meta block (free-form or typed) ───────────
       state :meta_block do
-        rule(%r/^[ \t]*#{CM2}[ \t]*(?=\n|\z)/) do |m|
+        rule(%r/^[#{WS_C}]*#{CM2}[#{WS_C}]*(?=\n|\z)/) do |m|
           token Comment::Preproc, m[0]
           goto :root
         end
-        rule %r/^[ \t]*\n/, Text
-        rule(/^(?=[ \t]*(?:#{DT2}|#{QUAD}))/) { goto :typed_meta_op }
+        rule %r/^[#{WS_C}]*\n/, Text
+        rule(/^(?=[#{WS_C}]*(?:#{DT2}|#{QUAD}))/) { goto :typed_meta_op }
         rule %r/[^\n]+/, Comment::Multiline   # free-form meta text
         rule %r/\n/, Text
       end
 
       # ─────────── triple line: subject phase ───────────
       state :subject do
-        rule %r/[ \t]+/, Text
-        rule(/[^\s.,][^\n,]*?(?=[ \t]*(?:#{DT2}|#{QUAD})|[ \t]*#{CM2}|[ \t]*$|\n|\z)/) do |m|
+        rule %r/[#{WS_C}]+/, Text
+        rule(/[^#{WSX_C}.,][^\n,]*?(?=[#{WS_C}]*(?:#{DT2}|#{QUAD})|[#{WS_C}]*#{CM2}|[#{WS_C}]*$|\n|\z)/) do |m|
           slot m, Name::Class
           goto :after_subject
         end
@@ -210,7 +218,7 @@ module Rouge
 
       # ─────────── after subject (or continuation-line entry) ───────────
       state :after_subject do
-        rule %r/[ \t]+/, Text
+        rule %r/[#{WS_C}]+/, Text
         # QuadDot FIRST: '.. ..' is ONE operator, not two.
         rule(%r/#{QUAD}/) do |m|
           token Operator, m[0]
@@ -229,8 +237,8 @@ module Rouge
 
       # ─────────── relation phase ───────────
       state :relation do
-        rule %r/[ \t]+/, Text
-        rule(/[^\s.,][^\n.,]*?(?=[ \t]*#{DT2}|[ \t]*$|\n|\z)/) do |m|
+        rule %r/[#{WS_C}]+/, Text
+        rule(/[^#{WSX_C}.,][^\n.,]*?(?=[#{WS_C}]*#{DT2}|[#{WS_C}]*$|\n|\z)/) do |m|
           slot m, Name::Function
           goto :after_relation
         end
@@ -238,7 +246,7 @@ module Rouge
       end
 
       state :after_relation do
-        rule %r/[ \t]+/, Text
+        rule %r/[#{WS_C}]+/, Text
         rule(%r/#{DT2}/) do |m|
           token Operator, m[0]
           goto :object
@@ -254,9 +262,9 @@ module Rouge
       # Object := TextExcept{NL,CM2} — it MAY contain `..` (20-object-dotdot),
       # so it runs to end of line or to a `,,`; it does not stop at a DT2.
       state :object do
-        rule %r/[ \t]+/, Text
+        rule %r/[#{WS_C}]+/, Text
         rule(%r/#{BLOCK_OPENER}/) { |m| open_block(m) }
-        rule(/[^\s,][^\n,]*?(?=[ \t]*#{CM2}|[ \t]*$|\n|\z)/) do |m|
+        rule(/[^#{WSX_C},][^\n,]*?(?=[#{WS_C}]*#{CM2}|[#{WS_C}]*$|\n|\z)/) do |m|
           slot m, Literal::String::Symbol
           goto :after_object
         end
@@ -264,9 +272,9 @@ module Rouge
       end
 
       state :after_object do
-        rule %r/[ \t]+/, Text
+        rule %r/[#{WS_C}]+/, Text
         # Trailing `,,` at end-of-line opens a multi-line meta block.
-        rule(%r/#{CM2}(?=[ \t]*(?:\n|\z))/) do |m|
+        rule(%r/#{CM2}(?=[#{WS_C}]*(?:\n|\z))/) do |m|
           token Comment::Preproc, m[0]
           goto :meta_block_open
         end
@@ -278,13 +286,13 @@ module Rouge
       end
 
       state :meta_block_open do
-        rule %r/[ \t]+/, Text
+        rule %r/[#{WS_C}]+/, Text
         rule(%r/\n/) { |m| token Text, m[0]; goto :meta_block }
       end
 
       # ─────────── typed meta inside a ,, block ───────────
       state :typed_meta_op do
-        rule %r/[ \t]+/, Text
+        rule %r/[#{WS_C}]+/, Text
         rule(%r/#{QUAD}/) do |m|          # implicit meta relation
           token Comment::Hashbang, m[0]
           goto :typed_meta_object
@@ -297,8 +305,8 @@ module Rouge
       end
 
       state :typed_meta_relation do
-        rule %r/[ \t]+/, Text
-        rule(/[^\s.,][^\n.,]*?(?=[ \t]*#{DT2}|[ \t]*$|\n|\z)/) do |m|
+        rule %r/[#{WS_C}]+/, Text
+        rule(/[^#{WSX_C}.,][^\n.,]*?(?=[#{WS_C}]*#{DT2}|[#{WS_C}]*$|\n|\z)/) do |m|
           slot m, Comment::Doc
           goto :typed_meta_after_relation
         end
@@ -306,7 +314,7 @@ module Rouge
       end
 
       state :typed_meta_after_relation do
-        rule %r/[ \t]+/, Text
+        rule %r/[#{WS_C}]+/, Text
         rule(%r/#{DT2}/) do |m|
           token Comment::Hashbang, m[0]
           goto :typed_meta_object
@@ -317,9 +325,9 @@ module Rouge
       # MetaObjectInBlock := TextExcept{NL} — `;;` is CONTENT here, not a
       # separator (that is the inline form only). See 28-semicolon-in-meta-block.
       state :typed_meta_object do
-        rule %r/[ \t]+/, Text
+        rule %r/[#{WS_C}]+/, Text
         rule(%r/#{BLOCK_OPENER}/) { |m| open_block(m) }
-        rule(/[^\s][^\n]*?(?=[ \t]*$|\n|\z)/) do |m|
+        rule(/[^#{WSX_C}][^\n]*?(?=[#{WS_C}]*$|\n|\z)/) do |m|
           slot m, Comment::Special
           goto :typed_meta_after_object
         end
@@ -327,22 +335,26 @@ module Rouge
       end
 
       state :typed_meta_after_object do
-        rule %r/[ \t]+/, Text
+        rule %r/[#{WS_C}]+/, Text
         rule(%r/\n/) { |m| token Text, m[0]; goto :meta_block }
       end
 
       # ─────────── inline metadata (after `,,` on a triple line) ───────────
       state :inline_meta do
         # A `..` / `....` right after the `,,` selects the triple form…
-        rule(/(?=[ \t]*(?:#{DT2}|#{QUAD}))/) { goto :inline_meta_op }
+        rule(/(?=[#{WS_C}]*(?:#{DT2}|#{QUAD}))/) { goto :inline_meta_op }
+        # …a `!!block` that fills the whole meta-text position opens a verbatim
+        # body (block-as-field, 4th position). Must precede the free-text rule,
+        # which would otherwise swallow the opener as meta text.
+        rule(%r/#{BLOCK_OPENER}/) { |m| open_block(m) }
         # …anything else is free-form meta text, trimmed of surrounding WS.
-        rule %r/[ \t]+/, Text
-        rule(/[^\s][^\n]*?(?=[ \t]*$|\n|\z)/) { |m| token Comment::Multiline, m[0] }
+        rule %r/[#{WS_C}]+/, Text
+        rule(/[^#{WSX_C}][^\n]*?(?=[#{WS_C}]*$|\n|\z)/) { |m| token Comment::Multiline, m[0] }
         rule(%r/\n/) { |m| token Text, m[0]; goto :root }
       end
 
       state :inline_meta_op do
-        rule %r/[ \t]+/, Text
+        rule %r/[#{WS_C}]+/, Text
         rule(%r/#{QUAD}/) do |m|          # implicit meta relation
           token Comment::Hashbang, m[0]
           goto :inline_meta_object
@@ -355,8 +367,8 @@ module Rouge
       end
 
       state :inline_meta_relation do
-        rule %r/[ \t]+/, Text
-        rule(/[^\s.,][^\n.,]*?(?=[ \t]*#{DT2}|[ \t]*$|\n|\z)/) do |m|
+        rule %r/[#{WS_C}]+/, Text
+        rule(/[^#{WSX_C}.,][^\n.,]*?(?=[#{WS_C}]*#{DT2}|[#{WS_C}]*$|\n|\z)/) do |m|
           slot m, Comment::Doc
           goto :inline_meta_after_relation
         end
@@ -364,7 +376,7 @@ module Rouge
       end
 
       state :inline_meta_after_relation do
-        rule %r/[ \t]+/, Text
+        rule %r/[#{WS_C}]+/, Text
         rule(%r/#{DT2}/) do |m|
           token Comment::Hashbang, m[0]
           goto :inline_meta_object
@@ -374,9 +386,9 @@ module Rouge
 
       # MetaObjectInline := TextExcept{NL,SC2} — stops at `;;`.
       state :inline_meta_object do
-        rule %r/[ \t]+/, Text
+        rule %r/[#{WS_C}]+/, Text
         rule(%r/#{BLOCK_OPENER}/) { |m| open_block(m) }
-        rule(/[^\s;][^\n;]*?(?=[ \t]*#{SC2}|[ \t]*$|\n|\z)/) do |m|
+        rule(/[^#{WSX_C};][^\n;]*?(?=[#{WS_C}]*#{SC2}|[#{WS_C}]*$|\n|\z)/) do |m|
           slot m, Comment::Special
           goto :inline_meta_next
         end
@@ -385,7 +397,7 @@ module Rouge
 
       # `;;` divides several (relation, object) pairs about one triple.
       state :inline_meta_next do
-        rule %r/[ \t]+/, Text
+        rule %r/[#{WS_C}]+/, Text
         rule(%r/#{SC2}/) do |m|
           token Punctuation, m[0]
           goto :inline_meta_op

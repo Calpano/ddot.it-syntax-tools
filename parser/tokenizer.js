@@ -22,16 +22,20 @@ const CM2_SRC = '(?<!,),,(?!,)';
 const SC2_SRC = '(?<!;);;(?!;)';
 // A command needs the slash and a non-empty name; bare `ddot.it` is not one.
 // `?` and `#` do not terminate a command; they introduce its query/fragment.
-const CMD_SRC = '(?:(?:https?://)?ddot\\.it/|!!)[^\\s?#]+(?:\\?[^\\s#]*)?(?:#\\S*)?';
-const BLOCK_SRC = '(?:(?:https?://)?ddot\\.it/|!!)block';
+// The `!!` spelling is an EM2 token: EXACTLY two `!`, neither preceded nor
+// followed by another `!` — a 3+ run of `!` is plain text (Parse Spec, Token
+// Sequences), so `!!!block` is neither a command nor a block opener.
+const CMD_BEGIN_SRC = '(?:(?:https?://)?ddot\\.it/|(?<!!)!!(?!!))';
+const CMD_SRC = `${CMD_BEGIN_SRC}[^\\s?#]+(?:\\?[^\\s#]*)?(?:#\\S*)?`;
+const BLOCK_SRC = `${CMD_BEGIN_SRC}block`;
 const CMD_ONLY = new RegExp(`^${CMD_SRC}$`);
 // `!!off` / `!!on` are recognised ANYWHERE on a line, not only alone on one:
 // the common way to write them is inside a host-language comment
 // (`<!-- ddot.it/off -->`, `# !!off`). The directive line yields only the command
 // token; the region starts on the NEXT line. `(?![^\s?#])` pins the command NAME,
 // so `!!office` is not `!!off`.
-const OFF_LINE = /((?:(?:https?:\/\/)?ddot\.it\/|!!)off)(?![^\s?#])/;
-const ON_LINE = /((?:(?:https?:\/\/)?ddot\.it\/|!!)on)(?![^\s?#])/;
+const OFF_LINE = new RegExp(`(${CMD_BEGIN_SRC}off)(?![^\\s?#])`);
+const ON_LINE = new RegExp(`(${CMD_BEGIN_SRC}on)(?![^\\s?#])`);
 // A line-initial `,,` followed by a meta pair: a metadata continuation.
 // Parse Spec "block-continuation" — after a block that filled the OBJECT, a
 // leading CM2 continues the logical line as metadata. Without it the line reads

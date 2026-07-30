@@ -10,6 +10,12 @@ the state stack themselves, which is what makes the dynamic terminator possible.
 
 import re
 
+# WS := TAB + every Unicode space separator (category Zs) — Parse Spec
+# "what counts as WS". NBSP (U+00A0) & co. are visually identical to a space,
+# so a slot must never keep one. Python's re has no \p{Zs}, hence the explicit
+# class; the negated \s classes below already cover Zs, since Python 3 str
+# patterns make \s Unicode-aware.
+
 from pygments.lexer import ExtendedRegexLexer, bygroups
 from pygments.token import (
     Comment,
@@ -27,7 +33,7 @@ from pygments.token import (
 # `...`, which the tokenization rule forbids.
 DT2 = r"(?<!\.)\.{2}(?!\.)"
 DT4 = r"(?<!\.)\.{4}(?!\.)"
-QUAD = r"(?<!\.)(?:\.{4}|\.{2}[ \t]+\.{2})(?!\.)"
+QUAD = r"(?<!\.)(?:\.{4}|\.{2}[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+\.{2})(?!\.)"
 CM2 = r"(?<!,),,(?!,)"
 SC2 = r"(?<!;);;(?!;)"
 
@@ -43,7 +49,7 @@ BLOCK_RE = r"(?:(?:https?://)?ddot\.it/|!!)block"
 GATE = r"(?=[^\n]*(?:" + DT4 + r"|" + DT2 + r"[^\n]*" + DT2 + r"))"
 
 # `!!block` filling a whole field: it must END its physical line.
-BLOCK_OPENER = r"([ \t]*)(" + BLOCK_RE + r")(?:(\?end=)(\S+))?([ \t]*)(?=\n|\Z)"
+BLOCK_OPENER = r"([\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*)(" + BLOCK_RE + r")(?:(\?end=)(\S+))?([\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*)(?=\n|\Z)"
 
 _CMD_ONLY = re.compile(r"\A" + CMD_RE + r"\Z")
 
@@ -133,16 +139,16 @@ class DdotLexer(ExtendedRegexLexer):
         # ─────────── line-dispatch root ───────────
         "root": [
             # Standalone `,,` opens a free-form meta block.
-            (r"^[ \t]*" + CM2 + r"[ \t]*(?=\n|\Z)", Comment.Preproc, "meta_block"),
+            (r"^[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*" + CM2 + r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(?=\n|\Z)", Comment.Preproc, "meta_block"),
             # Parse Spec "block-continuation": after a block that filled the
             # OBJECT, a line whose first token is CM2 CONTINUES the logical line
             # as metadata; without this it lexes as a fresh triple with subject
             # ",,". Keyed on shape, since a per-line state machine cannot see
             # that a block object preceded: ",," then whitespace then "..".
-            (r"^[ \t]*(" + CM2 + r")(?=[ \t]+" + DT2 + r")",
+            (r"^[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(" + CM2 + r")(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+" + DT2 + r")",
              bygroups(Comment.Preproc), "inline_meta"),
             # ... and SC2 after a block META OBJECT (`;; ..until.. 2020`).
-            (r"^[ \t]*(" + SC2 + r")(?=[ \t]+" + DT2 + r")",
+            (r"^[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(" + SC2 + r")(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+" + DT2 + r")",
              bygroups(Punctuation), "inline_meta"),
             # Off marker enters an excluded span.
             # Recognised ANYWHERE on the line (host-language comments); the whole line
@@ -152,9 +158,9 @@ class DdotLexer(ExtendedRegexLexer):
             # `!!block` alone on a line = a SUBJECT opener (block-as-field).
             (r"^" + BLOCK_OPENER, _open_block),
             # Empty / whitespace-only line.
-            (r"^[ \t]*\n", Text),
+            (r"^[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*\n", Text),
             # Gate: only lines with a full operator skeleton parse as triples.
-            (r"^" + GATE + r"(?=[ \t]*(?:" + DT2 + r"|" + QUAD + r"))", Text, "after_subject"),
+            (r"^" + GATE + r"(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(?:" + DT2 + r"|" + QUAD + r"))", Text, "after_subject"),
             (r"^" + GATE, Text, "subject"),
             # Anything else is not a triple: consume the line, emit no token.
             (r"[^\n]+", Text),
@@ -163,7 +169,7 @@ class DdotLexer(ExtendedRegexLexer):
 
         # ─────────── verbatim (a !!block body) ───────────
         "verbatim": [
-            (r"^[ \t]*\n", _verbatim_blank),
+            (r"^[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*\n", _verbatim_blank),
             (r"^[^\n]+", _verbatim_line),
             (r"\n", Text),
         ],
@@ -172,31 +178,31 @@ class DdotLexer(ExtendedRegexLexer):
         "disabled": [
             (r"^([^\n]*?)(" + ON_RE + r")(?![^\s?#])([^\n]*)(?=\n|\Z)",
              bygroups(Text, Keyword.Pseudo, Text), "#pop"),
-            (r"^[ \t]*\n", Text),
+            (r"^[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*\n", Text),
             (r"[^\n]+", Comment.Single),
             (r"\n", Text),
         ],
 
         # ─────────── multi-line meta block (free-form or typed) ───────────
         "meta_block": [
-            (r"^[ \t]*" + CM2 + r"[ \t]*(?=\n|\Z)", Comment.Preproc, "#pop"),
-            (r"^[ \t]*\n", Text),
-            (r"^(?=[ \t]*(?:" + DT2 + r"|" + QUAD + r"))", Text, "typed_meta_op"),
+            (r"^[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*" + CM2 + r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(?=\n|\Z)", Comment.Preproc, "#pop"),
+            (r"^[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*\n", Text),
+            (r"^(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(?:" + DT2 + r"|" + QUAD + r"))", Text, "typed_meta_op"),
             (r"[^\n]+", Comment.Multiline),  # free-form meta text
             (r"\n", Text),
         ],
 
         # ─────────── triple line: subject phase ───────────
         "subject": [
-            (r"[ \t]+", Text),
-            (r"[^\s.,][^\n,]*?(?=[ \t]*(?:" + DT2 + r"|" + QUAD + r")|[ \t]*" + CM2 + r"|[ \t]*$|\n|\Z)",
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
+            (r"[^\s.,][^\n,]*?(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(?:" + DT2 + r"|" + QUAD + r")|[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*" + CM2 + r"|[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$|\n|\Z)",
              _slot(Name.Class), ("#pop", "after_subject")),
             (r"\n", Text, "#pop"),
         ],
 
         # ─────────── after subject (or continuation-line entry) ───────────
         "after_subject": [
-            (r"[ \t]+", Text),
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
             # QuadDot FIRST: '.. ..' is ONE operator, not two.
             (QUAD, Operator, ("#pop", "object")),
             (DT2, Operator, ("#pop", "relation")),
@@ -206,14 +212,14 @@ class DdotLexer(ExtendedRegexLexer):
 
         # ─────────── relation phase ───────────
         "relation": [
-            (r"[ \t]+", Text),
-            (r"[^\s.,][^\n.,]*?(?=[ \t]*" + DT2 + r"|[ \t]*$|\n|\Z)",
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
+            (r"[^\s.,][^\n.,]*?(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*" + DT2 + r"|[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$|\n|\Z)",
              _slot(Name.Function), ("#pop", "after_relation")),
             (r"\n", Text, "#pop"),
         ],
 
         "after_relation": [
-            (r"[ \t]+", Text),
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
             (DT2, Operator, ("#pop", "object")),
             (CM2, Comment.Preproc, ("#pop", "inline_meta")),
             (r"\n", Text, "#pop"),
@@ -223,43 +229,43 @@ class DdotLexer(ExtendedRegexLexer):
         # Object := TextExcept{NL,CM2} — it MAY contain `..` (20-object-dotdot),
         # so it runs to end of line or to a `,,`; it does not stop at a DT2.
         "object": [
-            (r"[ \t]+", Text),
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
             (BLOCK_OPENER, _open_block),
-            (r"[^\s,][^\n,]*?(?=[ \t]*" + CM2 + r"|[ \t]*$|\n|\Z)",
+            (r"[^\s,][^\n,]*?(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*" + CM2 + r"|[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$|\n|\Z)",
              _slot(Literal.String.Symbol), ("#pop", "after_object")),
             (r"\n", Text, "#pop"),
         ],
 
         "after_object": [
-            (r"[ \t]+", Text),
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
             # Trailing `,,` at end of line opens a multi-line meta block.
-            (CM2 + r"(?=[ \t]*(?:\n|\Z))", Comment.Preproc, ("#pop", "meta_block_open")),
+            (CM2 + r"(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(?:\n|\Z))", Comment.Preproc, ("#pop", "meta_block_open")),
             (CM2, Comment.Preproc, ("#pop", "inline_meta")),
             (r"\n", Text, "#pop"),
         ],
 
         "meta_block_open": [
-            (r"[ \t]+", Text),
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
             (r"\n", Text, ("#pop", "meta_block")),
         ],
 
         # ─────────── typed meta inside a ,, block ───────────
         "typed_meta_op": [
-            (r"[ \t]+", Text),
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
             (QUAD, Comment.Special.Operator, ("#pop", "typed_meta_object")),
             (DT2, Comment.Special.Operator, ("#pop", "typed_meta_relation")),
             (r"\n", Text, "#pop"),
         ],
 
         "typed_meta_relation": [
-            (r"[ \t]+", Text),
-            (r"[^\s.,][^\n.,]*?(?=[ \t]*" + DT2 + r"|[ \t]*$|\n|\Z)",
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
+            (r"[^\s.,][^\n.,]*?(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*" + DT2 + r"|[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$|\n|\Z)",
              _slot(Comment.Special.Relation), ("#pop", "typed_meta_after_relation")),
             (r"\n", Text, "#pop"),
         ],
 
         "typed_meta_after_relation": [
-            (r"[ \t]+", Text),
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
             (DT2, Comment.Special.Operator, ("#pop", "typed_meta_object")),
             (r"\n", Text, "#pop"),
         ],
@@ -267,60 +273,65 @@ class DdotLexer(ExtendedRegexLexer):
         # MetaObjectInBlock := TextExcept{NL} — `;;` is CONTENT here, not a
         # separator (that is the inline form only). See 28-semicolon-in-meta-block.
         "typed_meta_object": [
-            (r"[ \t]+", Text),
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
             (BLOCK_OPENER, _open_block),
-            (r"[^\s][^\n]*?(?=[ \t]*$|\n|\Z)",
+            (r"[^\s][^\n]*?(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$|\n|\Z)",
              _slot(Comment.Special.Object), ("#pop", "typed_meta_after_object")),
             (r"\n", Text, "#pop"),
         ],
 
         "typed_meta_after_object": [
-            (r"[ \t]+", Text),
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
             (r"\n", Text, "#pop"),
         ],
 
         # ─────────── inline metadata (after `,,` on a triple line) ───────────
         "inline_meta": [
             # A `..` / `....` right after the `,,` selects the triple form…
-            (r"(?=[ \t]*(?:" + DT2 + r"|" + QUAD + r"))", Text, ("#pop", "inline_meta_op")),
+            (r"(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(?:" + DT2 + r"|" + QUAD + r"))", Text, ("#pop", "inline_meta_op")),
+            # …a `!!block` that fills the whole meta-text position opens a
+            # verbatim body (block-as-field, 4th position). Must precede the
+            # free-text rule, which would otherwise swallow the opener as meta
+            # text.
+            (BLOCK_OPENER, _open_block),
             # …anything else is free-form meta text, trimmed of surrounding WS.
-            (r"[ \t]+", Text),
-            (r"[^\s][^\n]*?(?=[ \t]*$|\n|\Z)", Comment.Multiline),
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
+            (r"[^\s][^\n]*?(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$|\n|\Z)", Comment.Multiline),
             (r"\n", Text, "#pop"),
         ],
 
         "inline_meta_op": [
-            (r"[ \t]+", Text),
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
             (QUAD, Comment.Special.Operator, ("#pop", "inline_meta_object")),
             (DT2, Comment.Special.Operator, ("#pop", "inline_meta_relation")),
             (r"\n", Text, "#pop"),
         ],
 
         "inline_meta_relation": [
-            (r"[ \t]+", Text),
-            (r"[^\s.,][^\n.,]*?(?=[ \t]*" + DT2 + r"|[ \t]*$|\n|\Z)",
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
+            (r"[^\s.,][^\n.,]*?(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*" + DT2 + r"|[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$|\n|\Z)",
              _slot(Comment.Special.Relation), ("#pop", "inline_meta_after_relation")),
             (r"\n", Text, "#pop"),
         ],
 
         "inline_meta_after_relation": [
-            (r"[ \t]+", Text),
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
             (DT2, Comment.Special.Operator, ("#pop", "inline_meta_object")),
             (r"\n", Text, "#pop"),
         ],
 
         # MetaObjectInline := TextExcept{NL,SC2} — stops at `;;`.
         "inline_meta_object": [
-            (r"[ \t]+", Text),
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
             (BLOCK_OPENER, _open_block),
-            (r"[^\s;][^\n;]*?(?=[ \t]*" + SC2 + r"|[ \t]*$|\n|\Z)",
+            (r"[^\s;][^\n;]*?(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*" + SC2 + r"|[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$|\n|\Z)",
              _slot(Comment.Special.Object), ("#pop", "inline_meta_next")),
             (r"\n", Text, "#pop"),
         ],
 
         # `;;` divides several (relation, object) pairs about one triple.
         "inline_meta_next": [
-            (r"[ \t]+", Text),
+            (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
             (SC2, Punctuation, ("#pop", "inline_meta_op")),
             (r"\n", Text, "#pop"),
         ],

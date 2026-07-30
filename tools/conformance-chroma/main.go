@@ -1,3 +1,8 @@
+// Offsets are counted in CHARACTERS, not bytes: the corpus convention is the
+// JS string index used by the other harnesses, so a multi-byte character such
+// as NBSP (case 35) must advance the column by one. Go's len() would count its
+// UTF-8 bytes and shift every later token on the line.
+//
 // Chroma conformance: load the XML lexer in ../../chroma/ddot.xml, tokenize
 // every ../../../ddot.it/test-data/cases/*/input.ddot, map Chroma token types
 // to canonical names, and assert byte equality against expected.tokens.json.
@@ -14,6 +19,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/alecthomas/chroma/v2"
 )
@@ -65,12 +71,12 @@ func tokenizeCanonical(src string, lexer chroma.Lexer) ([]goldenTok, error) {
 						out = append(out, goldenTok{
 							Line:  line,
 							Start: col,
-							End:   col + len(chunk),
+							End:   col + utf8.RuneCountInString(chunk),
 							Token: canon,
 							Text:  chunk,
 						})
 					}
-					col += len(chunk)
+					col += utf8.RuneCountInString(chunk)
 				}
 				break
 			}
@@ -80,7 +86,7 @@ func tokenizeCanonical(src string, lexer chroma.Lexer) ([]goldenTok, error) {
 					out = append(out, goldenTok{
 						Line:  line,
 						Start: col,
-						End:   col + len(chunk),
+						End:   col + utf8.RuneCountInString(chunk),
 						Token: canon,
 						Text:  chunk,
 					})
