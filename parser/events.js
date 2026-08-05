@@ -18,6 +18,12 @@
 import { tokenize } from './tokenizer.js';
 /** The built-in relation carried by free meta text (Parse Spec, Information Model). */
 const TEXT_RELATION = 'text';
+/**
+ * The relation of an untyped `....` / `.. ..` link. A Triple always has all three of Subject,
+ * Relation and Object, so this is written out rather than left for the consumer to default in
+ * (Parse Spec, Triple Events).
+ */
+const LINKS_TO = 'links to';
 const OFF_ON = /^(?:(?:https?:\/\/)?ddot\.it\/|!!)(?:off|on)$/;
 const BLOCK_OPENER = /^(?:(?:https?:\/\/)?ddot\.it\/|!!)block(?:\?end=\S+)?$/;
 export function parseEvents(text, kind, source) {
@@ -89,8 +95,9 @@ export function parseEvents(text, kind, source) {
         if (currentSubject === null)
             continue; // no subject in scope: not a triple
         const event = { from: currentSubject, to: parsed.object, kind, source, location: i + 1 };
-        if (parsed.relation !== undefined)
-            event.type = parsed.relation;
+        // A QuadDot line skips the relation slot, but an untyped link still HAS
+        // a relation — the implicit `links to`.
+        event.type = parsed.relation ?? LINKS_TO;
         if (parsed.meta.length > 0)
             event.meta = [...parsed.meta];
         events.push(event);
@@ -159,9 +166,10 @@ function readLine(toks, blockBodies, startPhase) {
                         pendingMetaRelation = value;
                         break;
                     case 5 /* Phase.MetaObj */:
-                        line.meta.push(pendingMetaRelation === undefined
-                            ? { to: value }
-                            : { type: pendingMetaRelation, to: value });
+                        // The untyped meta shortcut (`,, .... value`) leaves no
+                        // relation pending; like an untyped triple it carries
+                        // `links to`.
+                        line.meta.push({ type: pendingMetaRelation ?? LINKS_TO, to: value });
                         pendingMetaRelation = undefined;
                         break;
                 }
@@ -299,16 +307,16 @@ function groupByLine(tokens, lineCount) {
     return byLine;
 }
 // --- JSONL ------------------------------------------------------------------
-/** Field order matches the spec: from, type?, to, meta?, kind, source, location. */
+/**
+ * Field order matches the spec: from, type, to, meta?, kind, source, location. `type` is always
+ * written, never omitted — an untyped `....` link carries `links to`.
+ */
 export function toJsonl(events) {
     return events
         .map((e) => {
-        const ordered = { from: e.from };
-        if (e.type !== undefined)
-            ordered.type = e.type;
-        ordered.to = e.to;
+        const ordered = { from: e.from, type: e.type, to: e.to };
         if (e.meta !== undefined && e.meta.length > 0) {
-            ordered.meta = e.meta.map((m) => m.type === undefined ? { to: m.to } : { type: m.type, to: m.to });
+            ordered.meta = e.meta.map((m) => ({ type: m.type, to: m.to }));
         }
         ordered.kind = e.kind;
         ordered.source = e.source;
