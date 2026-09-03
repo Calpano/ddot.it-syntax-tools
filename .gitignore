@@ -2,3 +2,6 @@
 /.idea/
 /node_modules/
 /ddot.it-syntax-tools.iml
+
+# Local venv for the Pygments conformance harness (see pygments/README.md).
+.venv/

@@ -62,6 +62,45 @@ The lexer is verified against the cross-implementation golden corpus —
 identical to the TextMate, Shiki, and Rouge ports. See
 [`tools/conformance-pygments.py`](https://github.com/Calpano/ddot.it-syntax-tools/blob/main/tools/conformance-pygments.py).
 
+```sh
+npm run conformance:pygments      # or: python3 tools/conformance-pygments.py
+```
+
+### Prerequisite: Pygments itself must be importable
+
+The harness imports the lexer straight from this directory — it does **not**
+need `pygments-ddot` installed — but it does need the real
+[Pygments](https://pypi.org/project/Pygments/) library available to whichever
+`python3` is on `PATH`. macOS system Python does not ship it.
+
+From the **repository root** (where `package.json` lives; `.venv/` is
+gitignored):
+
+```sh
+python3 -m venv .venv && .venv/bin/pip install pygments
+PATH="$PWD/.venv/bin:$PATH" npm run conformance:pygments
+```
+
+### If it fails with `No module named 'pygments'`
+
+That error is misleading, and it does not mean the import path is wrong.
+`conformance-pygments.py` puts this repo's `pygments/` directory on
+`sys.path` so it can `import pygments_ddot`. Because that directory is itself
+named `pygments`, Python registers it as a *namespace package* called
+`pygments` — which shadows the real library's name.
+
+When the real Pygments **is** installed it wins, because a regular package
+(one with `__init__.py`) takes precedence over a namespace portion. When it is
+**not** installed, only the empty namespace portion remains, so `import
+pygments` succeeds while `from pygments.token import ...` fails — hence an
+error naming a module that appeared to import fine.
+
+The fix is always to install Pygments, never to change `sys.path`.
+
+The failure is loud: the script exits non-zero, so `npm run conformance`
+stops at this mirror rather than skipping it. A conformance run that does not
+mention Pygments has not verified it.
+
 ## License
 
 MIT
