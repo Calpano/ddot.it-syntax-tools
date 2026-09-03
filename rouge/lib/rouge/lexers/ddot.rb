@@ -341,15 +341,28 @@ module Rouge
 
       # ─────────── inline metadata (after `,,` on a triple line) ───────────
       state :inline_meta do
-        # A `..` / `....` right after the `,,` selects the triple form…
-        rule(/(?=[#{WS_C}]*(?:#{DT2}|#{QUAD}))/) { goto :inline_meta_op }
+        # A complete `..rel.. value` right after the `,,` selects the pair form.
+        # It must be COMPLETE: a lone `..` before the entry ends (at `;;` or EOL)
+        # is not an operator, it is literal meta text (41-inline-meta-unclosed-pair).
+        # The inner class excludes SC2 so this cannot borrow the `..` of the NEXT entry.
+        rule(/(?=[#{WS_C}]*(?:#{QUAD}|#{DT2}(?:(?!#{DT2})(?!#{SC2})[^\n])*?#{DT2}))/) { goto :inline_meta_op }
+        # An entry may be EMPTY and still be separated: `,, ;; a note` and a
+        # trailing `,, ;;` (40-inline-meta-empty-entry). `;;` separates
+        # unconditionally, so it is a separator here too, not meta text.
+        rule(%r/#{SC2}/) { |m| token Punctuation, m[0] }
         # …a `!!block` that fills the whole meta-text position opens a verbatim
         # body (block-as-field, 4th position). Must precede the free-text rule,
         # which would otherwise swallow the opener as meta text.
         rule(%r/#{BLOCK_OPENER}/) { |m| open_block(m) }
         # …anything else is free-form meta text, trimmed of surrounding WS.
+        # MetaTextInline := TextExcept{NL,SC2}: the note ENDS at the next `;;`,
+        # exactly as a pair's object does — `;;` separates entries unconditionally
+        # (36-inline-meta-notes, 37-inline-meta-mixed).
         rule %r/[#{WS_C}]+/, Text
-        rule(/[^#{WSX_C}][^\n]*?(?=[#{WS_C}]*$|\n|\z)/) { |m| token Comment::Multiline, m[0] }
+        rule(/(?!#{SC2})[^#{WSX_C}](?:(?!#{SC2})[^\n])*?(?=[#{WS_C}]*#{SC2}|[#{WS_C}]*$|\n|\z)/) do |m|
+          token Comment::Multiline, m[0]
+          goto :inline_meta_next
+        end
         rule(%r/\n/) { |m| token Text, m[0]; goto :root }
       end
 
@@ -395,12 +408,14 @@ module Rouge
         rule(%r/\n/) { |m| token Text, m[0]; goto :root }
       end
 
-      # `;;` divides several (relation, object) pairs about one triple.
+      # `;;` divides the ENTRIES of one triple's inline meta. The next entry may be
+      # a pair OR a free-text note, so go back to the :inline_meta dispatcher —
+      # :inline_meta_op would accept only the dotted forms.
       state :inline_meta_next do
         rule %r/[#{WS_C}]+/, Text
         rule(%r/#{SC2}/) do |m|
           token Punctuation, m[0]
-          goto :inline_meta_op
+          goto :inline_meta
         end
         rule(%r/\n/) { |m| token Text, m[0]; goto :root }
       end

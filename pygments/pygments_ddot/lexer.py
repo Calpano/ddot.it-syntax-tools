@@ -287,8 +287,15 @@ class DdotLexer(ExtendedRegexLexer):
 
         # ─────────── inline metadata (after `,,` on a triple line) ───────────
         "inline_meta": [
-            # A `..` / `....` right after the `,,` selects the triple form…
-            (r"(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(?:" + DT2 + r"|" + QUAD + r"))", Text, ("#pop", "inline_meta_op")),
+            # A COMPLETE `..rel.. value` right after the `,,` selects the pair form.
+            # A lone `..` before the entry ends (at `;;` or EOL) is not an operator,
+            # it is literal meta text (41-inline-meta-unclosed-pair). The inner class
+            # excludes SC2 so this cannot borrow the `..` of the NEXT entry.
+            (r"(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(?:" + QUAD + r"|" + DT2 + r"(?:(?!" + DT2 + r")(?!" + SC2 + r")[^\n])*?" + DT2 + r"))", Text, ("#pop", "inline_meta_op")),
+            # An entry may be EMPTY and still be separated: `,, ;; a note`, and a
+            # trailing `,, ;;` (40-inline-meta-empty-entry). `;;` separates
+            # unconditionally, so it is a separator here too, not meta text.
+            (SC2, Punctuation),
             # …a `!!block` that fills the whole meta-text position opens a
             # verbatim body (block-as-field, 4th position). Must precede the
             # free-text rule, which would otherwise swallow the opener as meta
@@ -296,7 +303,11 @@ class DdotLexer(ExtendedRegexLexer):
             (BLOCK_OPENER, _open_block),
             # …anything else is free-form meta text, trimmed of surrounding WS.
             (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
-            (r"[^\s][^\n]*?(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$|\n|\Z)", Comment.Multiline),
+            # MetaTextInline := TextExcept{NL,SC2}: the note ENDS at the next `;;`,
+            # exactly as a pair's object does -- `;;` separates entries unconditionally
+            # (36-inline-meta-notes, 37-inline-meta-mixed).
+            (r"(?!" + SC2 + r")[^\s](?:(?!" + SC2 + r")[^\n])*?(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*" + SC2 + r"|[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$|\n|\Z)",
+             Comment.Multiline, ("#pop", "inline_meta_next")),
             (r"\n", Text, "#pop"),
         ],
 
@@ -329,10 +340,12 @@ class DdotLexer(ExtendedRegexLexer):
             (r"\n", Text, "#pop"),
         ],
 
-        # `;;` divides several (relation, object) pairs about one triple.
+        # `;;` divides the ENTRIES of one triple's inline meta.
         "inline_meta_next": [
             (r"[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]+", Text),
-            (SC2, Punctuation, ("#pop", "inline_meta_op")),
+            # The next entry may be a pair OR a free-text note, so return to the
+            # "inline_meta" dispatcher -- "inline_meta_op" accepts only the dotted forms.
+            (SC2, Punctuation, ("#pop", "inline_meta")),
             (r"\n", Text, "#pop"),
         ],
     }

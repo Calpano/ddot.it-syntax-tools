@@ -176,6 +176,9 @@ function emitLine(out, lineNo, line, phase, inBlock) {
     const re = new RegExp(SIGNIFICANT_SRC, 'g');
     let last = 0;
     let m;
+    // Inside a MetaTextInline / MetaTextBlockLine: the current entry is a note, so every
+    // token up to the next `;;` (inline) or the end of the line (block) is its content.
+    let note = false;
     while ((m = re.exec(line)) !== null) {
         let sep = m[0];
         let isQuad = sep.length === 4 || sep.includes(' ') || sep.includes('\t');
@@ -186,10 +189,37 @@ function emitLine(out, lineNo, line, phase, inBlock) {
         // Once in an object-ish phase, `..` is content, not a separator.
         if (!isComma && !isSemi && (phase === 2 /* Phase.Object */ || phase === 5 /* Phase.MetaObj */))
             continue;
-        // `;;` separates inline meta pairs ONLY. Inside a `,,` block,
-        // MetaObjectInBlock := TextExcept{NL}, so it is ordinary content
-        // (28-semicolon-in-meta-block).
-        if (isSemi && (inBlock || phase !== 5 /* Phase.MetaObj */))
+        // `;;` separates inline meta ENTRIES, and does so unconditionally: it ends a
+        // free-text note (phase MetaStart) exactly as it ends a pair's object (phase
+        // MetaObj). There is no rule about what follows it — `,, one ;; two` is two
+        // notes (36-inline-meta-notes, 37-inline-meta-mixed).
+        //   - Outside the meta part it is plain text: Subject, Relation and Object all
+        //     admit SC2.
+        //   - In a MetaRelation it is plain text too, since MetaRelation is the same
+        //     production as Relation.
+        //   - Inside a `,,` block newlines separate the entries, so it is content
+        //     everywhere (28-semicolon-in-meta-block).
+        if (isSemi &&
+            (inBlock ||
+                (phase !== 3 /* Phase.MetaStart */ &&
+                    phase !== 6 /* Phase.MetaNext */ &&
+                    phase !== 5 /* Phase.MetaObj */)))
+            continue;
+        // MetaStart decides per ENTRY whether it is a pair or a note. A leading `..` opens a
+        // pair only if `[a MetaTripleInline derives]` — the automaton's one lookahead, bounded
+        // by the entry — otherwise that same `..` is the note's first character (`,, ..bla` is
+        // the note `..bla`, not a dangling relation). Anything else — text, `,,`, `!!` — starts
+        // a note too, and once a note has started only `;;` leaves it: MetaTextInline self-loops
+        // on `DT2 | DT4 | CM2 | EM2 | TX`.
+        if (!isSemi &&
+            !note &&
+            (phase === 3 /* Phase.MetaStart */ || phase === 6 /* Phase.MetaNext */)) {
+            note =
+                isComma ||
+                    line.substring(last, sepStart).trim() !== '' ||
+                    !metaPairDerives(line, sepEnd, isQuad, entryEnd(line, sepStart, inBlock));
+        }
+        if (note && !isSemi)
             continue;
         if (isComma && phase !== 2 /* Phase.Object */)
             continue;
@@ -222,6 +252,7 @@ function emitLine(out, lineNo, line, phase, inBlock) {
                 : isSemi
                     ? 'meta-separator'
                     : phase === 3 /* Phase.MetaStart */ ||
+                        phase === 6 /* Phase.MetaNext */ ||
                         phase === 4 /* Phase.MetaRel */ ||
                         phase === 5 /* Phase.MetaObj */ ||
                         inBlock
@@ -240,17 +271,25 @@ function emitLine(out, lineNo, line, phase, inBlock) {
             case 2 /* Phase.Object */:
                 phase = isComma ? 3 /* Phase.MetaStart */ : 2 /* Phase.Object */;
                 break;
-            // The untyped meta form `,, .... obj` skips the meta relation.
+            // The untyped meta form `,, .... obj` skips the meta relation. A `;;` here
+            // closed a free-text note, so the next entry starts in MetaStart again.
             case 3 /* Phase.MetaStart */:
-                phase = isQuad ? 5 /* Phase.MetaObj */ : 4 /* Phase.MetaRel */;
+            case 6 /* Phase.MetaNext */:
+                phase = isSemi
+                    ? 6 /* Phase.MetaNext */
+                    : isQuad
+                        ? 5 /* Phase.MetaObj */
+                        : 4 /* Phase.MetaRel */;
                 break;
             case 4 /* Phase.MetaRel */:
                 phase = 5 /* Phase.MetaObj */;
                 break;
             case 5 /* Phase.MetaObj */:
-                phase = isSemi ? 3 /* Phase.MetaStart */ : 5 /* Phase.MetaObj */;
+                phase = isSemi ? 6 /* Phase.MetaNext */ : 5 /* Phase.MetaObj */;
                 break;
         }
+        if (isSemi)
+            note = false; // a fresh entry begins after every `;;`
     }
     // Trailing slot, or a block opener with no separator after it.
     const bo = matchFrom(BLOCK_OPENER, line, last);
@@ -267,6 +306,53 @@ function emitLine(out, lineNo, line, phase, inBlock) {
         emitSlot(out, lineNo, line, last, line.length, phase);
     }
     return st;
+}
+/**
+ * Where the inline meta entry starting at `from` ends: at the next `;;`, or at the end of the
+ * line if there is none. In a `,,` block NL is the separator and `;;` is content, so the entry
+ * is the whole line. This is the bound on the `metaPairDerives` lookahead below — an entry ends
+ * at the next SC2 or NL, so the guard never has to look past one entry.
+ */
+function entryEnd(line, from, inBlock) {
+    if (inBlock)
+        return line.length;
+    const m = matchFrom(new RegExp(SC2_SRC), line, from);
+    return m ? m.index : line.length;
+}
+/**
+ * The automaton's one guard, `[a MetaTripleInline derives]`: does the marker just consumed —
+ * ending at `markerEnd`, within the entry ending at `entryEnd` — actually open a meta pair?
+ *
+ * A QuadDot needs only a non-empty object (`MetaTripleInline := QuadDot MetaObjectInline` cannot
+ * fail otherwise). A DoubleDot needs the rest of the pair too: a non-empty MetaRelation, a
+ * closing `..`, and a non-empty object after it. When this is false the marker is not an error
+ * but the first character of a note — `MetaEntryInline` is an ORDERED choice with MetaTextInline
+ * last.
+ */
+function metaPairDerives(line, markerEnd, quad, entryEndPos) {
+    if (markerEnd > entryEndPos)
+        return false;
+    if (quad)
+        return line.substring(markerEnd, entryEndPos).trim() !== '';
+    const re = new RegExp(SIGNIFICANT_SRC, 'g');
+    re.lastIndex = markerEnd;
+    let m;
+    while ((m = re.exec(line)) !== null) {
+        if (m.index >= entryEndPos)
+            return false;
+        const s = m[0];
+        // `,,` and `;;` are ordinary content in a MetaRelation (`Name`) and, in a block, in the
+        // object too; only a `..` can close the relation.
+        if (s === ',,' || s === ';;')
+            continue;
+        // A spaced `.. ..` closes with its LEADING `..`, the same demotion the caller applies in
+        // the relation slot (20-object-dotdot); a literal `....` does not.
+        const spacedQuad = s.length !== 4 && (s.includes(' ') || s.includes('\t'));
+        const closeEnd = spacedQuad ? m.index + 2 : m.index + s.length;
+        return (line.substring(markerEnd, m.index).trim() !== '' &&
+            line.substring(closeEnd, entryEndPos).trim() !== '');
+    }
+    return false;
 }
 /** Java's `Matcher.find(from)`: match the pattern at or after `from`. */
 function matchFrom(re, line, from) {

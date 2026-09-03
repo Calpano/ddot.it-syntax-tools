@@ -35,9 +35,11 @@ export function parseEvents(text, kind, source) {
     let currentSubject = null;
     let openMetaEvent = null;
     let lastEvent = null;
-    // A `,,` block holds either triples or text, never both, and a whole
-    // MetaTextBlock is ONE node (`MetaTextBlock *-- "1..n" MetaTextBlockLine`) —
-    // so its lines join into a single `text` entry, not one per line.
+    // A `,,` block holds pairs AND free-text notes, mixed freely and in any order,
+    // and the event keeps the WRITTEN order. Only *adjacent* text lines are one note
+    // (`MetaTextBlock *-- "1..n" MetaTextBlockLine`): they join with newlines, so a
+    // pasted paragraph stays intact. A pair line ends that run, and the next text
+    // line after it starts a second note (38-block-meta-notes, 39-block-meta-mixed).
     let metaTextLines = [];
     const flushMetaText = (event) => {
         if (metaTextLines.length === 0)
@@ -71,10 +73,16 @@ export function parseEvents(text, kind, source) {
         const parsed = readLine(toks, blockBodies, inMetaBlock ? 3 /* Phase.MetaStart */ : 0 /* Phase.Subject */);
         if (openMetaEvent) {
             for (const mp of parsed.meta) {
-                if (mp.type === TEXT_RELATION)
+                if (mp.type === TEXT_RELATION) {
                     metaTextLines.push(mp.to);
-                else
+                }
+                else {
+                    // Flush BEFORE appending: the pending note was written earlier, and
+                    // this pair also ends its run. Appending the pair first would both
+                    // reorder the entries and fold two notes into one.
+                    flushMetaText(openMetaEvent);
                     (openMetaEvent.meta ??= []).push(mp);
+                }
             }
             continue;
         }

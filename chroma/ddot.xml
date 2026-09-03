@@ -448,9 +448,18 @@
     </state>
 
     <state name="inline_meta">
-      <!-- A `..` / `....` right after the `,,` selects the triple form… -->
-      <rule pattern="(?=[\t\p{Zs}]*(?:(?&lt;!\.)\.{2}(?!\.)|(?&lt;!\.)(?:\.{4}|\.{2}[\t\p{Zs}]+\.{2})(?!\.)))">
+      <!-- A COMPLETE `..rel.. value` right after the `,,` selects the pair form.
+           A lone `..` before the entry ends (at `;;` or EOL) is not an operator, it is
+           literal meta text (41-inline-meta-unclosed-pair). The inner class excludes
+           SC2 so this cannot borrow the `..` of the NEXT entry. -->
+      <rule pattern="(?=[\t\p{Zs}]*(?:(?&lt;!\.)(?:\.{4}|\.{2}[\t\p{Zs}]+\.{2})(?!\.)|(?&lt;!\.)\.{2}(?!\.)(?:(?!(?&lt;!\.)\.{2}(?!\.))(?!(?&lt;!;);;(?!;))[^\n])*?(?&lt;!\.)\.{2}(?!\.)))">
         <push state="inline_meta_op"/>
+      </rule>
+      <!-- An entry may be EMPTY and still be separated: `,, ;; a note`, and a trailing
+           `,, ;;` (40-inline-meta-empty-entry). `;;` separates unconditionally, so it is
+           a separator here too, not meta text. -->
+      <rule pattern="(?&lt;!;);;(?!;)">
+        <token type="Punctuation"/>
       </rule>
       <!-- block-as-field's 4th position: a `!!block` that fills the whole meta
            TEXT. Must precede the free-text rule, which would otherwise swallow
@@ -471,12 +480,16 @@
         <token type="KeywordPseudo"/>
         <push state="verbatim"/>
       </rule>
-      <!-- …anything else is free-form meta text, trimmed of surrounding WS. -->
+      <!-- …anything else is free-form meta text, trimmed of surrounding WS.
+           MetaTextInline := TextExcept{NL,SC2}: the note ENDS at the next `;;`,
+           exactly as a pair's object does — `;;` separates entries unconditionally
+           (36-inline-meta-notes, 37-inline-meta-mixed). -->
       <rule pattern="[\t\p{Zs}]+">
         <token type="Text"/>
       </rule>
-      <rule pattern="[^\t\p{Zs}\r\n\f\v][^\n]*?(?=[\t\p{Zs}]*$|\n|$)">
+      <rule pattern="(?!(?&lt;!;);;(?!;))[^\t\p{Zs}\r\n\f\v](?:(?!(?&lt;!;);;(?!;))[^\n])*?(?=[\t\p{Zs}]*(?&lt;!;);;(?!;)|[\t\p{Zs}]*$|\n|$)">
         <token type="CommentMultiline"/>
+        <push state="inline_meta_next"/>
       </rule>
       <rule pattern="(?=\n)">
         <pop depth="1"/>
@@ -564,14 +577,16 @@
       </rule>
     </state>
 
-    <!-- `;;` divides several (relation, object) pairs about one triple. -->
+    <!-- `;;` divides the ENTRIES of one triple's inline meta. The next entry may be
+         a pair OR a free-text note, so go to the `inline_meta` dispatcher —
+         `inline_meta_op` would accept only the dotted forms. -->
     <state name="inline_meta_next">
       <rule pattern="[\t\p{Zs}]+">
         <token type="Text"/>
       </rule>
       <rule pattern="(?&lt;!;);;(?!;)">
         <token type="Punctuation"/>
-        <push state="inline_meta_op"/>
+        <push state="inline_meta"/>
       </rule>
       <rule pattern="(?=\n)">
         <pop depth="1"/>

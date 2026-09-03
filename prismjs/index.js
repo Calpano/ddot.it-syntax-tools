@@ -64,6 +64,19 @@ const GATE = `(?=[^\\n]*(?:${DT4}|${DT2}[^\\n]*${DT2}))`;
 const inlineMetaInside = {
   'meta-delim': new RegExp(`^${CM2}`),
   'meta-separator': new RegExp(SC2),
+  // Free-form meta text, tried BEFORE the pair rules. An entry is a note whenever
+  // no pair DERIVES in it, which is what the negative lookahead spells out:
+  // without a closing `..` and a non-empty object (or a QUAD and one), a leading
+  // `..` is the note's first character and not a marker — `,, ..bla` is the note
+  // `..bla` (41-inline-meta-unclosed-pair). Anchored to the entry: the separators
+  // are already consumed, so each residual chunk IS one entry. The object may also
+  // be at the residual's END rather than in it: a `!!block` / command object is
+  // matched by an earlier rule and already gone by now (30-block-meta-object),
+  // which is why `$` counts as an object here.
+  'meta-text': {
+    pattern: new RegExp(`^([${WS}]*)(?!(?:${DT2}[${WS}]*${NAME_REL}[${WS}]*${DT2}[${WS}]*(?:[^${WSX}]|$))|(?:${QUAD}[${WS}]*(?:[^${WSX}]|$)))(?:[^${WSX}][^\\n]*[^${WSX}]|[^${WSX}])`),
+    lookbehind: true,
+  },
   'meta-relation': {
     pattern: new RegExp(`(${DT2}[${WS}]*)(${NAME_REL})(?=[${WS}]*${DT2})`),
     lookbehind: true,
@@ -74,8 +87,6 @@ const inlineMetaInside = {
     inside: { 'command': new RegExp(`^${CMD}$`) },
   },
   'meta-doubledot': new RegExp(`${QUAD}|${DT2}`),
-  // Free-form meta text: whatever is left after a `,,` with no `..` in it.
-  'meta-text': new RegExp(`[^${WSX}][^\\n]*[^${WSX}]|[^${WSX}]`),
 };
 
 const INLINE_META = {

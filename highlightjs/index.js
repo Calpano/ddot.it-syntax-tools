@@ -40,9 +40,16 @@ export default function ddotHighlightJs(/* hljs */) {
   // meta mode can start.
   const HEAD_END = /(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(?:(?<!,),,(?!,)|$))/;
 
+  // A MetaRelation is bounded by its ENTRY. The pair has to close before the next
+  // `;;`, so the name may hold a lone `;` but never an SC2 — otherwise `,, ..bla ;;
+  // ..since.. 2016` reads as ONE pair whose relation is `bla ;;`, borrowing the
+  // closing `..` of the NEXT entry (41-inline-meta-unclosed-pair). Where no pair
+  // derives inside the entry, META_TEXT takes it: `,, ..bla` is the note `..bla`.
+  const META_NAME_REL = /[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v.,](?:(?!(?<!;);;(?!;))[^\n.,])*?/;
+
   // ── Meta: one `..rel.. obj` pair, or the untyped `.... obj` form ──
   const META_PAIR = {
-    match: [WS, DT2, WS, NAME_REL, WS, DT2, WS, /[^\s;][^\n;]*?/, /(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(?:(?<!;);;(?!;)|$))/],
+    match: [WS, DT2, WS, META_NAME_REL, WS, DT2, WS, /[^\s;][^\n;]*?/, /(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(?:(?<!;);;(?!;)|$))/],
     scope: { 2: 'meta-doubledot', 4: 'meta-relation', 6: 'meta-doubledot', 8: 'meta-object' },
   };
   const META_PAIR_UNTYPED = {
@@ -50,8 +57,11 @@ export default function ddotHighlightJs(/* hljs */) {
     scope: { 2: 'meta-doubledot', 4: 'meta-object' },
   };
   const META_SEPARATOR = { match: SC2, scope: 'meta-separator' };
-  // Fallback: free-form inline meta text, trimmed of surrounding whitespace.
-  const META_TEXT = { match: /[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v][^\n]*?(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*$)/, scope: 'meta-text' };
+  // Free-form inline meta text — an ENTRY like any other, not a fallback for the
+  // whole `,,` part. MetaTextInline := TextExcept{NL,SC2}, so a note ENDS at the
+  // next `;;` exactly as a pair's object does: `;;` separates unconditionally
+  // (36-inline-meta-notes, 37-inline-meta-mixed).
+  const META_TEXT = { match: /(?!(?<!;);;(?!;))[^\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000\r\n\f\v](?:(?!(?<!;);;(?!;))[^\n])*?(?=[\t\u0020\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]*(?:(?<!;);;(?!;)|$))/, scope: 'meta-text' };
 
   // The inline meta part: `,,` then any number of pairs, or free text.
   const INLINE_META = {

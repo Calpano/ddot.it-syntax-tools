@@ -391,18 +391,21 @@
       }
     },
     "meta-inline-separator": {
-      "_comment": "';;' divides several (relation, object) assertions about one triple. Only meaningful inside the ',,' part.",
+      "_comment": "';;' separates the ENTRIES of one triple's inline meta -- pairs and free-text notes alike. Only meaningful inside the ',,' part.",
       "match": "(?<!;);;(?!;)",
       "name": "punctuation.separator.meta.ddot"
     },
     "meta-inline-text": {
       "_comment": [
-        "Fallback: free-form inline meta text (MetaTextInline).",
-        "The capture is whitespace-tight, matching `Meta := CM2 WS* MetaInline WS*` -- the WS",
-        "after the ',,' is OUTSIDE MetaInline, and MetaTextInline may only begin with",
-        "CM2/SC2/EM2/TX, never whitespace. Symmetric with #meta-block-text-line."
+        "Free-form inline meta text (MetaTextInline) -- an ENTRY like any other, not a fallback",
+        "for a whole ',,' part: pairs and notes mix freely and in any order.",
+        "MetaTextInline := TextExcept{NL,SC2}, so the note ENDS at the next ';;' exactly as a",
+        "pair's object does -- ';;' separates unconditionally, with no lookahead at what follows",
+        "(36-inline-meta-notes, 37-inline-meta-mixed). A note that must carry a literal ';;' is",
+        "written in the ',,' block form instead (28-semicolon-in-meta-block).",
+        "The capture is whitespace-tight, matching `Meta := CM2 WS* MetaInline WS*`."
       ],
-      "match": "[\\t\\p{Zs}]*([^\\r\\n]*[^\\t\\p{Zs}\\r\\n])[\\t\\p{Zs}]*",
+      "match": "[\\t\\p{Zs}]*((?:(?!(?<!;);;(?!;))[^\\r\\n])*?[^\\t\\p{Zs}\\r\\n])[\\t\\p{Zs}]*(?=(?<!;);;(?!;)|$)",
       "captures": {
         "1": {
           "name": "entity.name.object.meta.text.ddot",
@@ -625,7 +628,7 @@
       "contentName": "string.unquoted.block.ddot"
     },
     "block-metatext": {
-      "_comment": "block-as-field: !!block filling the META TEXT (',, !!block'). Redundant with the ',,' … ',,' block form but permitted. First blank line terminates.",
+      "_comment": "block-as-field: !!block filling the META TEXT (',, !!block'). Redundant with the ',,' \u2026 ',,' block form but permitted. First blank line terminates.",
       "begin": "^[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[\\t\\p{Zs}]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*((?<!\\.)\\.{2}(?!\\.)))[\\t\\p{Zs}]*((?:(?!(?<!,),,(?!,))[^\\r\\n])*?)[\\t\\p{Zs}]*((?<!,),,(?!,))[\\t\\p{Zs}]*((?:(?<!!)!!(?!!)|(?:https?://)?ddot\\.it/)block)[\\t\\p{Zs}]*$",
       "end": "^[\\t\\p{Zs}]*$",
       "beginCaptures": {
@@ -705,7 +708,7 @@
       "contentName": "string.unquoted.block.ddot"
     },
     "meta-continuation-line": {
-      "_comment": "Parse Spec 'block-continuation': after a block, the next line CONTINUES the logical line when its first token is one the interrupted position accepts — CM2 after a block OBJECT (',, ..since.. 2016'), SC2 after a block META OBJECT (';; ..until.. 2020'). Neither is a fresh triple whose subject is ',,' / ';;'. Corpus cases 32-chained-blocks and 33-meta-block-continuation. TextMate cannot verify which slot the preceding block filled (that needs parser state), so the rule keys on the shape: the delimiter, whitespace, then a '..' pair. A lone ',,' is #meta-block-standalone, and a subject merely starting with the character (',,weird ..r.. o') does not match.",
+      "_comment": "Parse Spec 'block-continuation': after a block, the next line CONTINUES the logical line when its first token is one the interrupted position accepts \u2014 CM2 after a block OBJECT (',, ..since.. 2016'), SC2 after a block META OBJECT (';; ..until.. 2020'). Neither is a fresh triple whose subject is ',,' / ';;'. Corpus cases 32-chained-blocks and 33-meta-block-continuation. TextMate cannot verify which slot the preceding block filled (that needs parser state), so the rule keys on the shape: the delimiter, whitespace, then a '..' pair. A lone ',,' is #meta-block-standalone, and a subject merely starting with the character (',,weird ..r.. o') does not match.",
       "begin": "^[\\t\\p{Zs}]*(?:((?<!,),,(?!,))|((?<!;);;(?!;)))(?=[\\t\\p{Zs}]+(?<!\\.)\\.{2}(?!\\.))",
       "beginCaptures": {
         "1": {
