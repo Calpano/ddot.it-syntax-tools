@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  # Weekly, so a change to the ../ddot.it test-data corpus or spec is
+  # caught even when this repo sees no pushes.
+  schedule:
+    - cron: '17 6 * * 1'  # Mondays 06:17 UTC
 
 jobs:
   conformance:
