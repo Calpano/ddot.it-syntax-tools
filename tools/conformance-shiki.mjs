@@ -12,7 +12,7 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHighlighter } from "shiki";
-import ddotLanguage from "@calpano/ddot-shiki";
+import ddotLanguage, { fillBlankLines } from "@calpano/ddot-shiki";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "..");
@@ -118,67 +118,21 @@ const cases = readdirSync(casesDir, { withFileTypes: true })
   .map((d) => d.name)
   .sort();
 
-// Cases that cannot pass under Shiki, for reasons outside this grammar.
+// Every case is tokenized the way the package README says to use it: through
+// `fillBlankLines` (the `ddotBlankLines` transformer). Shiki skips empty lines
+// without calling the grammar (`if (line === "") continue` in
+// @shikijs/primitive), so without it a `!!block` that ends at a blank line runs
+// on: cases 17, 29, 30, 32, 33 and 34 fail. The check after the loop tells when
+// a Shiki release stops skipping them, so the transformer can be retired.
 //
-// 17-block — UPSTREAM SHIKI BUG. A `!!block` region ends at the first BLANK
-//   line, and Shiki cannot change grammar state across a blank line at all.
-//   In @shikijs/primitive/dist/index.mjs the per-line loop reads:
-//
-//       if (line === "") {
-//           actual = [];
-//           final.push([]);
-//           continue;          // <-- grammar.tokenizeLine() is never called
-//       }
-//
-//   Empty lines are skipped wholesale, so `stateStack` is never advanced
-//   through the grammar. Any begin/end rule whose terminator matches an empty
-//   line therefore never fires, and the region runs on past it.
-//
-//   NOT the TextMate engine, and NOT this grammar. The blank line never
-//   reaches @shikijs/vscode-textmate, so how the terminator is spelled is
-//   irrelevant — `end: "^[ \t]*$"` and `while: "^[ \t]*\S"` (non-zero-width)
-//   fail identically. No grammar-level spelling avoids it.
-//
-//   Verified by patching that guard to advance `stateStack` across empty
-//   lines: 17-block then passes, unmodified. (node_modules was restored.)
-//   Present in shiki 4.1.0 / @shikijs/primitive 4.1.0.
-//
-//   Minimal upstream repro, independent of ddot.it — grammar:
-//       { begin: "^START$", end: "^[ \t]*$", contentName: "string.body" }
-//   input "START\nin1\n\nOUT": `OUT` should be outside the region, but Shiki
-//   reports it inside.
-//
-//   Case 21-block-end-marker exercises the SAME construct with an explicit
-//   `?end=MARKER` terminator and DOES pass, because that terminator is a real
-//   marker line rather than a blank one. So Shiki's block support is blind
-//   only to the blank-line form.
-//
-// Remove an entry once upstream fixes it; a waiver that starts passing is
-// itself reported as a failure below.
-const REASON_BLANK_LINE =
-  "shiki skips empty lines, so a blank-line region terminator never fires (@shikijs/primitive)";
-
-const KNOWN_ENGINE_DIVERGENCE = new Map([
-  // All three are the SAME bug: a !!block terminated by a blank line. They differ only in
-  // which field the opener fills -- object, subject, meta object. The ?end=MARKER variants of
-  // the same constructs (21-block-end-marker) pass, because their terminator is a real line.
-  ["17-block",            REASON_BLANK_LINE],
-  ["29-block-subject",    REASON_BLANK_LINE],
-  ["30-block-meta-object", REASON_BLANK_LINE],
-  // Same bug again: 32-chained-blocks carries TWO blank-line-terminated blocks
-  // (a block subject and a block object on one logical line), so the first
-  // terminator is missed and the rest of the case is swallowed as verbatim.
-  ["32-chained-blocks", REASON_BLANK_LINE],
-  // Ditto: the !!block filling the meta object is blank-line terminated.
-  ["33-meta-block-continuation", REASON_BLANK_LINE],
-  // Ditto for the fourth opener position: `,, !!block` fills the META TEXT and
-  // is blank-line terminated, so the following `Dirk ..works at.. SAP` line is
-  // swallowed as verbatim. Everything up to the blank line matches exactly.
-  ["34-block-meta-text", REASON_BLANK_LINE],
-]);
+// Cases that cannot pass under Shiki even so, for reasons outside this grammar.
+// A waiver that starts passing is itself reported as a failure below.
+const KNOWN_ENGINE_DIVERGENCE = new Map([]);
 
 let failed = 0;
 let waived = 0;
+/** Cases that pass only with fillBlankLines: the upstream empty-line skip still bites. */
+const needBlankLineFix = [];
 for (const name of cases) {
   const input = join(casesDir, name, "input.ddot");
   const expected = join(casesDir, name, "expected.tokens.json");
@@ -187,7 +141,10 @@ for (const name of cases) {
     continue;
   }
   const src = readFileSync(input, "utf8");
-  const actual = tokenize(src);
+  const actual = tokenize(fillBlankLines(src));
+  if (diffTokens(tokenize(src), JSON.parse(readFileSync(expected, "utf8"))).length > 0) {
+    needBlankLineFix.push(name);
+  }
   const expectedRaw = JSON.parse(readFileSync(expected, "utf8"));
   const diffs = diffTokens(actual, expectedRaw);
   if (diffs.length === 0) {
@@ -216,4 +173,7 @@ if (failed > 0) {
 if (waived > 0) {
   console.log(`\n${waived} case(s) waived (known upstream engine divergence)`);
 }
+console.log(needBlankLineFix.length > 0
+  ? `\n${needBlankLineFix.length} case(s) pass only with fillBlankLines (Shiki still skips empty lines): ${needBlankLineFix.join(", ")}`
+  : "\nNo case needs fillBlankLines any more: Shiki now tokenizes empty lines, so ddotBlankLines can be retired.");
 console.log("\nall cases pass Shiki conformance");

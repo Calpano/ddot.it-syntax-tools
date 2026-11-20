@@ -18,7 +18,7 @@ npm install @calpano/ddot-shiki shiki
 
 ```js
 import { createHighlighter } from "shiki";
-import ddot from "@calpano/ddot-shiki";
+import ddot, { ddotBlankLines } from "@calpano/ddot-shiki";
 
 const highlighter = await createHighlighter({
   themes: ["github-light"],
@@ -31,8 +31,11 @@ const code = `Project Eagle ..started in.. 2024
 const html = highlighter.codeToHtml(code, {
   lang: "ddot.it",
   theme: "github-light",
+  transformers: [ddotBlankLines],
 });
 ```
+
+See [Blank lines](#blank-lines) for why the transformer is needed.
 
 The aliases `ddot.it`, `ddot`, and `ddotit` all resolve to this grammar
 (matching the existing IntelliJ and VS Code conventions).
@@ -67,32 +70,27 @@ triple, so it renders as first-class content rather than as a comment. The
 For the canonical token vocabulary and conformance protocol see
 [`ddot.it/test-data/tokens.md`](https://github.com/Calpano/ddot.it/blob/main/test-data/tokens.md).
 
-## Known limitation: `!!block` and blank lines
+## Blank lines
 
-> **A `!!block` whose body is terminated by a blank line is highlighted
-> incorrectly under Shiki: the block does not end, and the rest of the document
-> is rendered as block content.**
+**Pass `ddotBlankLines` in `transformers`**, or a `!!block` that ends at a blank
+line is not ended: the rest of the document is highlighted as block content.
 
-This is a bug in Shiki itself, not in the grammar, and it affects every
-Shiki-based highlighter regardless of theme or engine option. The same grammar
-is correct in VS Code and in any consumer built on `vscode-textmate`.
-
-**Why.** Shiki's per-line loop in `@shikijs/primitive` skips empty lines
-outright:
+Shiki never hands an empty line to the grammar. Its per-line loop in
+`@shikijs/primitive` skips them:
 
 ```js
 if (line === "") {
     actual = [];
     final.push([]);
-    continue;          // grammar.tokenizeLine() is never called
+    continue;          // the grammar is never called for this line
 }
 ```
 
-Because the grammar is never invoked for a blank line, grammar state cannot
-change there. Any TextMate `begin`/`end` rule whose terminator matches an empty
-line can never fire, so the region survives the blank line and runs on. This is
-not specific to `ddot.it` — heredocs, indented blocks and reStructuredText-style
-constructs hit the same wall. Minimal reproduction, no `ddot.it` involved:
+So the grammar's state cannot change at a blank line, and a TextMate
+`begin`/`end` rule whose end matches an empty line never fires. This is not
+specific to ddot.it: heredocs and other blank-line-terminated constructs are
+affected too. The grammar itself is correct in VS Code and anything else built
+on `vscode-textmate`. Minimal reproduction:
 
 ```js
 // grammar
@@ -101,30 +99,23 @@ constructs hit the same wall. Minimal reproduction, no `ddot.it` involved:
 // expected: OUT is outside the region.   actual (Shiki): OUT is inside it.
 ```
 
-Confirmed against shiki 4.1.0 / `@shikijs/primitive` 4.1.0. Patching that guard
-to advance state across empty lines makes the case pass with the grammar
-unchanged, which is what pins the cause.
+`ddotBlankLines` works around it: its `preprocess` hook replaces each empty
+line with a single space. A whitespace-only line ends the block just like an
+empty one, and Shiki does pass it to the grammar. The output differs only by
+that invisible space; character offsets after a blank line shift by one per
+blank line before them.
 
-**What this does *not* affect.** Only the blank-line form. Everything else —
-triples, metadata, `,,` blocks, `off`/`on` spans — is unaffected, and so is the
-explicit-terminator form of the same construct:
+- Shiki runs `preprocess` in `codeToHtml` and `codeToHast`, and so in
+  integrations built on them (rehype, Astro, VitePress, markdown-it). With
+  `codeToTokens`, call `fillBlankLines(code)` yourself first.
+- The hook sees all the code of one Shiki call. When Markdown with ```` ```ddot ````
+  fences is highlighted as one document, all its blank lines get the space.
+- Blocks with an explicit end, `!!block?end=MARKER`, end at a real marker line
+  and need no transformer.
 
-```
-john ..address.. !!block?end=END
-1 Broad Way
-
-still inside the block: a blank line does not end this form
-END
-```
-
-Because `END` is a real marker line rather than a blank one, Shiki handles it
-correctly. **Prefer `!!block?end=MARKER` in content you intend to render with
-Shiki.**
-
-Tracked in this repo as a waived conformance case (`17-block`) in
-`tools/conformance-shiki.mjs`, which carries the full analysis. The waiver is
-self-expiring: if a future Shiki release fixes the loop, the case starts passing
-and the harness fails until the waiver is removed.
+Seen in Shiki up to 4.6.0. The conformance harness
+(`tools/conformance-shiki.mjs`) reports when a Shiki release stops skipping
+empty lines, so the transformer can be retired.
 
 ## License
 

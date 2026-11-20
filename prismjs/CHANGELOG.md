@@ -4,7 +4,7 @@
 
 Rewritten to follow the ddot.it Parse and Highlight specifications, with the
 TextMate grammar canonical. 0.1.1 was checked against the 11 corpus cases of
-May 2026; 0.2.0 passes all 42.
+May 2026; 0.2.0 passes 41 of the 42, all but `?end=MARKER` (case 21).
 
 ### Breaking: token names
 
@@ -24,8 +24,9 @@ needs updating:
 ### Added
 
 - **`!!block` values** in the subject, object and metadata-object positions,
-  and after `,,`, ended by a blank line or by `?end=MARKER`. The body is
-  `verbatim`, the end marker `block-end`.
+  and after `,,`, ended by a blank line. The body is `verbatim`.
+  `!!block?end=MARKER` is **not supported**: its end is a line equal to the
+  marker given earlier, which Prism cannot express (corpus case 21).
 - **Commands with query and fragment** (`!!block?end=EOS`); the part after the
   name is `command-param`.
 - **`!!off` / `!!on` anywhere on a line**, so they work inside host-language

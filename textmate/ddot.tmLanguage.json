@@ -137,7 +137,7 @@
         "`while: ^[ \\t]*\\S` (non-zero-width) fail identically -- no spelling here avoids it.",
         "Confirmed by patching that guard: corpus case 17-block then passes unmodified.",
         "vscode-textmate (VS Code, the regenerator, conformance-textmate) is unaffected.",
-        "17-block is waived in tools/conformance-shiki.mjs, which carries the full analysis.",
+        "@calpano/ddot-shiki's ddotBlankLines transformer works around it by turning empty lines into a single space.",
         "Case 21 (?end=MARKER) is unaffected -- its terminator is a marker line, not a blank one."
       ],
       "begin": "^[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*(?:((?<!\\.)(?:\\.{4}|\\.{2}[\\t\\p{Zs}]+\\.{2})(?!\\.))|((?<!\\.)\\.{2}(?!\\.))[\\t\\p{Zs}]*([^\\r\\n]*?)[\\t\\p{Zs}]*((?<!\\.)\\.{2}(?!\\.)))[\\t\\p{Zs}]*((?:(?<!!)!!(?!!)|(?:https?://)?ddot\\.it/)block)[\\t\\p{Zs}]*$",
