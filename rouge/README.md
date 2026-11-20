@@ -23,7 +23,7 @@ startup — no `_plugins/` file needed:
 ```ruby
 # Gemfile
 group :jekyll_plugins do
-  gem 'rouge-ddot', '~> 0.1.3'
+  gem 'rouge-ddot', '~> 0.1.4'
 end
 ```
 

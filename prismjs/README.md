@@ -25,10 +25,11 @@ Aliases registered: `ddot.it`, `ddot`, `ddotit`.
 ## Theme styling
 
 Prism's stock themes don't know about ddot scopes. Add CSS for:
-`.token.subject`, `.token.relation`, `.token.object`, `.token.operator`,
-`.token.command`, `.token.meta-delim`, `.token.meta-operator`,
-`.token.meta-relation`, `.token.meta-object`, `.token.meta-text`,
-`.token.disabled`.
+`.token.subject`, `.token.relation`, `.token.object`, `.token.doubledot`,
+`.token.command`, `.token.command-param`, `.token.meta-delim`,
+`.token.meta-separator`, `.token.meta-doubledot`, `.token.meta-relation`,
+`.token.meta-object`, `.token.meta-text`, `.token.verbatim`,
+`.token.block-end`, `.token.excluded`.
 
 ## Conformance
 

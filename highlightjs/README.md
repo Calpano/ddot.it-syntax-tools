@@ -27,21 +27,24 @@ Aliases registered: `ddot.it`, `ddot`, `ddotit`.
 ## Theme styling
 
 This language uses ddot-specific scopes (`hljs-subject`, `hljs-relation`,
-`hljs-object`, `hljs-operator`, `hljs-command`, `hljs-meta-delim`,
-`hljs-meta-operator`, `hljs-meta-relation`, `hljs-meta-object`,
-`hljs-meta-text`, `hljs-disabled`). To get reasonable colours from a
+`hljs-object`, `hljs-doubledot`, `hljs-command`, `hljs-command-param`,
+`hljs-meta-delim`, `hljs-meta-separator`, `hljs-meta-doubledot`,
+`hljs-meta-relation`, `hljs-meta-object`, `hljs-meta-text`, `hljs-verbatim`,
+`hljs-block-end`, `hljs-excluded`). To get reasonable colours from a
 generic hljs theme, supply CSS that maps these to themed properties:
 
 ```css
 .hljs-subject  { color: var(--hljs-name); font-weight: 600; }
 .hljs-relation { color: var(--hljs-attr); }
 .hljs-object   { color: var(--hljs-string); }
-.hljs-operator { color: var(--hljs-punctuation); }
-.hljs-command  { color: var(--hljs-keyword); }
-.hljs-meta-delim, .hljs-meta-operator,
+.hljs-doubledot { color: var(--hljs-punctuation); }
+.hljs-command, .hljs-block-end { color: var(--hljs-keyword); }
+.hljs-command-param { color: var(--hljs-attr); }
+.hljs-verbatim { color: var(--hljs-string); }
+.hljs-meta-delim, .hljs-meta-separator, .hljs-meta-doubledot,
 .hljs-meta-relation, .hljs-meta-object,
 .hljs-meta-text { color: var(--hljs-comment); font-style: italic; }
-.hljs-disabled { color: var(--hljs-comment); opacity: 0.6; }
+.hljs-excluded { color: var(--hljs-comment); opacity: 0.6; }
 ```
 
 ## Conformance

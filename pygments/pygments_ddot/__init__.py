@@ -8,14 +8,18 @@ Token mapping (Pygments → canonical, see ../../ddot.it/test-data/tokens.md):
   Name.Class                     → subject
   Name.Function                  → relation
   Literal.String.Symbol          → object
-  Operator                       → operator
+  Operator                       → doubledot
   Keyword.Pseudo                 → command
+  Name.Attribute                 → command-param
   Comment.Preproc                → meta-delim
-  Comment.Special.Operator       → meta-operator
+  Punctuation                    → meta-separator
+  Comment.Special.Operator       → meta-doubledot
   Comment.Special.Relation       → meta-relation
   Comment.Special.Object         → meta-object
   Comment.Multiline              → meta-text
-  Comment.Single                 → disabled
+  Literal.String.Backtick        → verbatim
+  Name.Label                     → block-end
+  Comment.Single                 → excluded
 """
 
 from .lexer import DdotLexer

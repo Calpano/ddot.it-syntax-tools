@@ -1,6 +1,6 @@
 {
   "name": "@calpano/ddot-parser",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Canonical JavaScript parser for ddot.it (Knowledge Graph Notation): tokenizer, triple-event extraction and a `ddot-index` CLI.",
   "license": "MIT",
   "type": "module",
